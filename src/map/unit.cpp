@@ -435,7 +435,7 @@ static TIMER_FUNC(unit_walktoxy_timer)
 
 	//Monsters can only leave icewalls to the west and south
 	//But if movement fails more than icewall_walk_block times, they can ignore this rule
-	if(md && !ud->state.force_walk && md->walktoxy_fail_count < icewall_walk_block && map_getcell(bl->m,x,y,CELL_CHKICEWALL) && (dx > 0 || dy > 0)) {
+	if(md && md->walktoxy_fail_count < icewall_walk_block && map_getcell(bl->m,x,y,CELL_CHKICEWALL) && (dx > 0 || dy > 0)) {
 		//Needs to be done here so that rudeattack skills are invoked
 		md->walktoxy_fail_count++;
 		clif_fixpos(bl);
@@ -471,8 +471,6 @@ static TIMER_FUNC(unit_walktoxy_timer)
 			unit_refresh( bl, false );
 		}
 #endif
-
-		ud->state.force_walk = false;
 
 		if (ud->walk_done_event[0]){
 			char walk_done_event[EVENT_NAME_LENGTH];
@@ -528,7 +526,7 @@ static TIMER_FUNC(unit_walktoxy_timer)
 				md->min_chase--;
 			// Walk skills are triggered regardless of target due to the idle-walk mob state.
 			// But avoid triggering on stop-walk calls.
-			if(!ud->state.force_walk && tid != INVALID_TIMER &&
+			if(tid != INVALID_TIMER &&
 				!(ud->walk_count%WALK_SKILL_INTERVAL) &&
 				map[bl->m].users > 0 &&
 				mobskill_use(md, tick, -1)) {
@@ -1297,7 +1295,7 @@ int unit_warp(struct block_list *bl,short m,short x,short y,clr_type type)
 			if (map_getmapflag(bl->m, MF_MONSTER_NOTELEPORT) && ((TBL_MOB*)bl)->master_id == 0)
 				return 1;
 
-			if (m != bl->m && map_getmapflag(m, MF_NOBRANCH) && battle_config.mob_warp&4 && !(((TBL_MOB *)bl)->master_id))
+			if (m != bl->m && map_getmapflag(m, MF_NOBRANCH) && battle_config.mob_warp & 4 && !(((TBL_MOB*)bl)->master_id) || ((TBL_MOB*)bl)->option.allow_warp)
 				return 1;
 			break;
 		case BL_PC:
@@ -2706,6 +2704,9 @@ static int unit_attack_timer_sub(struct block_list* src, int tid, t_tick tick)
 	if( ud->skilltimer != INVALID_TIMER && !(sd && pc_checkskill(sd,SA_FREECAST) > 0) )
 		return 0; // Can't attack while casting
 
+	if( sd && map_getmapflag(src->m, MF_BATTLEGROUND) )
+		pc_update_last_action(sd,0,IDLE_ATTACK);
+
 	if( !battle_config.sdelay_attack_enable && DIFF_TICK(ud->canact_tick,tick) > 0 && !(sd && pc_checkskill(sd,SA_FREECAST) > 0) ) {
 		// Attacking when under cast delay has restrictions:
 		if( tid == INVALID_TIMER ) { // Requested attack.
@@ -2851,10 +2852,11 @@ static TIMER_FUNC(unit_attack_timer){
 bool unit_can_attack(struct block_list *bl, int target_id) {
 	nullpo_retr(false, bl);
 
+
 	if (bl->type == BL_PC) {
 		map_session_data *sd = ((TBL_PC *)bl);
 
-		if (sd && ((sd->state.block_action & PCBLOCK_ATTACK) || pc_isridingwug(sd)))
+		if (sd && ((sd->state.block_action & PCBLOCK_ATTACK) || pc_isridingwug(sd) || sd->state.only_walk))
 			return false;
 	}
 
@@ -3408,6 +3410,7 @@ int unit_free(struct block_list *bl, clr_type clrtype)
 			pc_inventory_rental_clear(sd);
 			pc_delspiritball(sd, sd->spiritball, 1);
 			pc_delspiritcharm(sd, sd->spiritcharm, sd->spiritcharm_type);
+			if (sd->qd) bg_queue_leaveall(sd);
 
 			if( sd->st && sd->st->state != RUN ) {// free attached scripts that are waiting
 				script_free_state(sd->st);

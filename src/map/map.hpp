@@ -47,7 +47,7 @@ void map_msg_reload(void);
 #define LOOTITEM_SIZE 10
 #define MAX_MOBSKILL 50		//Max 128, see mob skill_idx type if need this higher
 #define MAX_MOB_LIST_PER_MAP 128
-#define MAX_EVENTQUEUE 2
+#define MAX_EVENTQUEUE 50
 #define MAX_EVENTTIMER 32
 #define NATURAL_HEAL_INTERVAL 500
 #define MIN_FLOORITEM 2
@@ -469,6 +469,7 @@ enum _sp {
 	SP_UPPER,SP_PARTNER,SP_CART,SP_FAME,SP_UNBREAKABLE,	//56-60
 	SP_CARTINFO=99,	// 99
 
+	SP_ITEMUSEDID = 117,
 	SP_KILLEDGID=118,
 	SP_BASEJOB=119,	// 100+19 - celest
 	SP_BASECLASS=120,	//Hmm.. why 100+19? I just use the next one... [Skotlex]
@@ -482,12 +483,13 @@ enum _sp {
 	SP_ROULETTE_BRONZE = 128,
 	SP_ROULETTE_SILVER = 129,
 	SP_ROULETTE_GOLD = 130,
-	SP_CASHPOINTS, SP_KAFRAPOINTS,
-	SP_PCDIECOUNTER, SP_COOKMASTERY,
-	SP_ACHIEVEMENT_LEVEL,
+       SP_CASHPOINTS, SP_KAFRAPOINTS,
+       SP_PCDIECOUNTER, SP_COOKMASTERY,
+       SP_ACHIEVEMENT_LEVEL,
+       SP_GOLDPCPOINTS,
 
-	// Mercenaries
-	SP_MERCFLEE=165, SP_MERCKILLS=189, SP_MERCFAITH=190,
+       // Mercenaries
+       SP_MERCFLEE=165, SP_MERCKILLS=189, SP_MERCFAITH=190,
 
 	// 4th jobs
 	SP_POW=219, SP_STA, SP_WIS, SP_SPL, SP_CON, SP_CRT,	// 219-224
@@ -627,6 +629,7 @@ enum e_mapflag : int16 {
 	MF_PVP_NOCALCRANK,	//50
 	MF_BATTLEGROUND,
 	MF_RESET,
+	MF_MOBITEMDROP,
 	MF_NOMAPCHANNELAUTOJOIN,
 	MF_NOUSECART,
 	MF_NOITEMCONSUMPTION,
@@ -635,6 +638,7 @@ enum e_mapflag : int16 {
 	MF_NOLOCKON,
 	MF_NOTOMB,
 	MF_SKILL_DAMAGE,	//60
+	MF_AFK, //61
 	MF_NOCOSTUME,
 	MF_GVG_TE_CASTLE,
 	MF_GVG_TE,
@@ -650,6 +654,19 @@ enum e_mapflag : int16 {
 	MF_NORENEWALDROPPENALTY,
 	MF_NOPETCAPTURE,
 	MF_NOBUYINGSTORE,
+	MF_KINGOFEMP,
+	MF_NOECALL, // [BattleGround System]
+	MF_BG_CONSUME, // allows using BG consumables
+	MF_WOE_CONSUME, // allows using WoE consumables
+	MF_GUILD_MAX,		// Oboro
+	MF_GUILD_MIN,		// Oboro
+	MF_MAP_DISABLED,	// Oboro
+	MF_FVF,
+	MF_GVG_NOALLIANCE,
+	MF_MONSTERIGNORE,	// Oboro
+	MF_PVPMVP,		// Oboro: en mapas mvp no regresa a la ciudad
+	MF_DROPRATE,		// Oboro
+	MF_MOBITEMADDER,	// Oboro
 	MF_MAX
 };
 
@@ -690,6 +707,19 @@ struct s_drop_list {
 	enum e_nightmare_drop_type drop_type;
 };
 
+/// Struct for MF_MOBITEMDROP_sub
+struct s_mobitemdrop_sub_list {
+	int drop_id;
+	int drop_per;
+	int annunce;
+};
+
+/// Struct for MF_MOBITEMDROP
+struct s_mobitemdrop_list {
+	int mob_id;
+	std::vector<s_mobitemdrop_sub_list> mobitemdrop_sub_list;
+};
+
 /// Union for mapflag values
 union u_mapflag_args {
 	struct point nosave;
@@ -713,6 +743,8 @@ enum cell_t{
 	CELL_MAELSTROM,
 	CELL_ICEWALL,
 	CELL_NOBUYINGSTORE,
+	CELL_NODAMAGE, // Oboro - BG
+
 };
 
 // used by map_getcell()
@@ -737,6 +769,7 @@ enum cell_chk : uint8 {
 	CELL_CHKMAELSTROM,		// Whether the cell has Maelstrom
 	CELL_CHKICEWALL,		// Whether the cell has Ice Wall
 	CELL_CHKNOBUYINGSTORE,	// Whether the cell denies ALL_BUYING_STORE skill
+	CELL_CHKNODAMAGE,		// Oboro BG
 
 };
 
@@ -746,7 +779,8 @@ struct mapcell
 	unsigned char
 		walkable : 1,
 		shootable : 1,
-		water : 1;
+		water : 1,
+		nodamage : 1; // Oboro BG
 
 	// dynamic flags
 	unsigned char
@@ -780,7 +814,7 @@ struct map_data {
 	int16 m;
 	int16 xs,ys; // map dimensions (in cells)
 	int16 bxs,bys; // map dimensions (in blocks)
-	int16 bgscore_lion, bgscore_eagle; // Battleground ScoreBoard
+	int16 bgscore_lion, bgscore_eagle, bgscore_top; // Battleground ScoreBoard
 	int npc_num; // number total of npc on the map
 	int npc_num_area; // number of npc with a trigger area on the map
 	int npc_num_warp; // number of warp npc on the map
@@ -791,6 +825,7 @@ struct map_data {
 	std::vector<int> flag;
 	struct point save;
 	std::vector<s_drop_list> drop_list;
+	std::vector<s_mobitemdrop_list> mobitemdrop_list;
 	uint32 zone; // zone number (for item/skill restrictions)
 	struct s_skill_damage damage_adjust; // Used for overall skill damage adjustment
 	std::unordered_map<uint16, s_skill_damage> skill_damage; // Used for single skill damage adjustment
@@ -799,6 +834,7 @@ struct map_data {
 	struct npc_data *npc[MAX_NPC_PER_MAP];
 	struct spawn_data *moblist[MAX_MOB_LIST_PER_MAP]; // [Wizputer]
 	int mob_delete_timer;	// Timer ID for map_removemobs_timer [Skotlex]
+	int guild_max;
 
 	// Instance Variables
 	int instance_id;
@@ -959,6 +995,47 @@ inline bool mapdata_flag_gvg2_no_te(struct map_data *mapdata) {
 	return false;
 }
 
+inline bool mapdata_map_flag_gvg3(struct map_data *mapdata) {
+	if (mapdata == nullptr)
+		return false;
+
+	if (mapdata->flag[MF_GVG] || ((agit_flag || agit2_flag || agit3_flag) && mapdata->flag[MF_GVG_CASTLE]) || mapdata->flag[MF_BATTLEGROUND])
+		return true;
+
+	return false;
+}
+
+inline bool mapdata_allowed_woe(struct map_data *mapdata) {
+	if (mapdata == nullptr)
+		return false;
+	
+	if((agit_flag || agit2_flag) && mapdata->flag[MF_GVG] && mapdata->flag[MF_GVG_CASTLE])
+		return true;
+
+	return false;
+}
+
+
+inline bool mapdata_gvg_items(struct map_data *mapdata) {
+	if (mapdata == nullptr)
+		return false;
+
+	if (mapdata->flag[MF_GVG] || ((agit_flag || agit2_flag || agit3_flag) && mapdata->flag[MF_GVG_CASTLE]) || mapdata->flag[MF_WOE_CONSUME])
+		return true;
+
+	return false;
+}
+
+inline bool mapdata_bg_items(struct map_data *mapdata) {
+	if (mapdata == nullptr)
+		return false;
+
+	if (mapdata->flag[MF_BATTLEGROUND] ||  mapdata->flag[MF_BG_CONSUME])
+		return true;
+
+	return false;
+}
+
 /// Backwards compatibility
 inline bool map_flag_vs(int16 m) {
 	if (m < 0)
@@ -1021,6 +1098,45 @@ inline bool map_flag_gvg2_no_te(int16 m) {
 	struct map_data *mapdata = &map[m];
 
 	return mapdata_flag_gvg2_no_te(mapdata);
+}
+
+
+//Battleground eAmod
+inline bool map_allowed_woe(int16 m) {
+	if (m < 0)
+		return false;
+
+	struct map_data *mapdata = &map[m];
+
+	return mapdata_allowed_woe(mapdata);
+}
+
+
+inline bool map_gvg_items(int16 m) {
+	if (m < 0)
+		return false;
+
+	struct map_data *mapdata = &map[m];
+
+	return mapdata_gvg_items(mapdata);
+}
+
+inline bool map_bg_items(int16 m) {
+	if (m < 0)
+		return false;
+
+	struct map_data *mapdata = &map[m];
+
+	return mapdata_bg_items(mapdata);
+}
+
+inline bool map_flag_gvg3(int16 m) {
+	if (m < 0)
+		return false;
+
+	struct map_data *mapdata = &map[m];
+
+	return mapdata_map_flag_gvg3(mapdata);
 }
 
 extern char motd_txt[];
@@ -1094,6 +1210,7 @@ TIMER_FUNC(map_clearflooritem_timer);
 TIMER_FUNC(map_removemobs_timer);
 void map_clearflooritem(struct block_list* bl);
 int map_addflooritem(struct item *item, int amount, int16 m, int16 x, int16 y, int first_charid, int second_charid, int third_charid, int flags, unsigned short mob_id, bool canShowEffect = false);
+int map_addflooritem_area(struct block_list* bl, int16 m, int16 x, int16 y, int nameid, int amount); // [Zephyrus]
 
 // instances
 int map_addinstancemap(int src_m, int instance_id, bool no_mapflag);

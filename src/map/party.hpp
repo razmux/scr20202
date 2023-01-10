@@ -99,4 +99,9 @@ void party_booking_update(struct map_session_data *sd, short* job);
 void party_booking_search(struct map_session_data *sd, short level, short mapid, short job, unsigned long lastindex, short resultcount);
 bool party_booking_delete(struct map_session_data *sd);
 
+/*==========================================
+ * Adventurer's Agency 
+ *------------------------------------------*/
+void party_agency_join(struct map_session_data *sd, struct map_session_data *t_sd, int flag);
+
 #endif /* PARTY_HPP */

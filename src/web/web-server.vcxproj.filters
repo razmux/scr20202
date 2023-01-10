@@ -39,6 +39,9 @@
     <ClCompile Include="webutils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="party_controller.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auth.hpp">
@@ -69,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="webutils.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="party_controller.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

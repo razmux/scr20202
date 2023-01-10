@@ -20,6 +20,7 @@ enum e_guild_action : uint32 {
 	GS_LEVEL = 0x0100,
 	GS_MES = 0x0200,
 	GS_MASK = 0x03FF,
+	GS_RANKING = 0x0400,
 	GS_BASIC_MASK = (GS_BASIC | GS_EMBLEM | GS_CONNECT | GS_LEVEL | GS_MES),
 	GS_REMOVE = 0x8000,
 };

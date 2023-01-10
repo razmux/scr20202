@@ -12,6 +12,7 @@
 #include "../common/socket.hpp"  // RBUF*
 #include "../common/strlib.hpp"  // safestrncpy
 #include "../common/timer.hpp"  // gettick
+#include "../common/utils.hpp"
 
 #include "atcommand.hpp"  // msg_txt
 #include "battle.hpp"  // battle_config.*
@@ -73,6 +74,8 @@ int8 buyingstore_setup(struct map_session_data* sd, unsigned char slots){
 		return 1;
 	}
 
+	pc_check_security_retr(sd, SECU_BUYINGSTORE_OPEN, 1);
+
 	if( sd->sc.data[SC_NOCHAT] && (sd->sc.data[SC_NOCHAT]->val1&MANNER_NOROOM) )
 	{// custom: mute limitation
 		return 2;
@@ -125,7 +128,7 @@ int8 buyingstore_create( struct map_session_data* sd, int zenylimit, unsigned ch
 		return 5;
 	}
 
-	if( !battle_config.feature_buying_store || pc_istrading(sd) || sd->buyingstore.slots == 0 || count > sd->buyingstore.slots || zenylimit <= 0 || zenylimit > sd->status.zeny || !storename[0] )
+	if( !battle_config.feature_buying_store || pc_istrading(sd) || sd->buyingstore.slots == 0 || count > sd->buyingstore.slots || zenylimit <= 0 || zenylimit > sd->status.zeny || !storename[0] || pc_check_security(sd,SECU_BUYINGSTORE_OPEN) )
 	{// disabled or invalid input
 		sd->buyingstore.slots = 0;
 		clif_buyingstore_open_failed(sd, BUYINGSTORE_CREATE, 0);
@@ -162,10 +165,11 @@ int8 buyingstore_create( struct map_session_data* sd, int zenylimit, unsigned ch
 	// check item list
 	for( i = 0; i < count; i++ ){
 		const struct PACKET_CZ_REQ_OPEN_BUYING_STORE_sub *item = &itemlist[i];
-		std::shared_ptr<item_data> id = item_db.find(item->itemId);
+
+		struct item_data* id = itemdb_exists( item->itemId );
 
 		// invalid input
-		if( id == nullptr || item->amount == 0 ){	
+		if( id == NULL || item->amount == 0 ){	
 			break;
 		}
 
@@ -175,7 +179,7 @@ int8 buyingstore_create( struct map_session_data* sd, int zenylimit, unsigned ch
 		}
 
 		// restrictions: allowed and no character-bound items
-		if( !id->flag.buyingstore || !itemdb_cantrade_sub( id.get(), pc_get_group_level( sd ), pc_get_group_level( sd ) ) ){ 
+		if( !id->flag.buyingstore || !itemdb_cantrade_sub( id, pc_get_group_level( sd ), pc_get_group_level( sd ) ) ){ 
 			break;
 		}
 
@@ -324,7 +328,7 @@ void buyingstore_open(struct map_session_data* sd, uint32 account_id)
 * @param count Number of item on the itemlist
 */
 void buyingstore_trade( struct map_session_data* sd, uint32 account_id, unsigned int buyer_id, const struct PACKET_CZ_REQ_TRADE_BUYING_STORE_sub* itemlist, unsigned int count ){
-	int zeny = 0;
+	int zeny = 0, char_id;
 	unsigned int weight;
 	struct map_session_data* pl_sd;
 
@@ -332,6 +336,11 @@ void buyingstore_trade( struct map_session_data* sd, uint32 account_id, unsigned
 
 	if( count == 0 )
 	{// nothing to do
+		return;
+	}
+
+	if (pc_check_security(sd,SECU_BUYINGSTORE)) {
+		clif_buyingstore_trade_failed_seller(sd, BUYINGSTORE_TRADE_SELLER_FAILED, 0);
 		return;
 	}
 
@@ -376,7 +385,7 @@ void buyingstore_trade( struct map_session_data* sd, uint32 account_id, unsigned
 		for( int k = 0; k < i; k++ ){
 			// duplicate
 			if( itemlist[k].index == item->index && k != i ){
-				ShowWarning( "buyingstore_trade: Found duplicate item on selling list (prevnameid=%u, prevamount=%hu, nameid=%u, amount=%hu, account_id=%d, char_id=%d).\n", itemlist[k].itemId, itemlist[k].amount, item->itemId, item->amount, sd->status.account_id, sd->status.char_id );
+				ShowWarning( "buyingstore_trade: Found duplicate item on selling list (prevnameid=%hu, prevamount=%hu, nameid=%hu, amount=%hu, account_id=%d, char_id=%d).\n", itemlist[k].itemId, itemlist[k].amount, item->itemId, item->amount, sd->status.account_id, sd->status.char_id );
 				clif_buyingstore_trade_failed_seller( sd, BUYINGSTORE_TRADE_SELLER_FAILED, item->itemId );
 				return;
 			}
@@ -396,6 +405,13 @@ void buyingstore_trade( struct map_session_data* sd, uint32 account_id, unsigned
 			return;
 		}
 
+		if (sd->inventory.u.items_inventory[index].card[0] == CARD0_CREATE && (char_id = MakeDWord(sd->inventory.u.items_inventory[index].card[2], sd->inventory.u.items_inventory[index].card[3])) > 0 && (char_id == battle_config.bg_reserved_char_id || char_id == battle_config.woe_reserved_char_id || char_id == battle_config.universal_reserved_char_id))
+		{ // Items where creator's ID is important
+			clif_buyingstore_trade_failed_seller(sd, BUYINGSTORE_TRADE_SELLER_FAILED, item->itemId);
+			clif_displaymessage(sd->fd, "Cannot Trade event reserved Items.");
+			return;
+		}
+
 		int listidx;
 
 		ARR_FIND( 0, pl_sd->buyingstore.slots, listidx, pl_sd->buyingstore.items[listidx].nameid == item->itemId );
@@ -405,7 +421,7 @@ void buyingstore_trade( struct map_session_data* sd, uint32 account_id, unsigned
 			clif_buyingstore_trade_failed_seller( sd, BUYINGSTORE_TRADE_SELLER_FAILED, item->itemId );
 			return;
 		}
-
+		
 		// buyer does not need that much of the item
 		if( pl_sd->buyingstore.items[listidx].amount < item->amount ){
 			clif_buyingstore_trade_failed_seller( sd, BUYINGSTORE_TRADE_SELLER_COUNT, item->itemId );

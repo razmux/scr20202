@@ -30,7 +30,7 @@
 #include "http.hpp"
 #include "userconfig_controller.hpp"
 #include "merchantstore_controller.hpp"
-
+#include "party_controller.hpp"
 
 using namespace rathena;
 
@@ -42,24 +42,24 @@ struct Inter_Config inter_config {};
 std::shared_ptr<httplib::Server> http_server;
 
 int login_server_port = 3306;
-std::string login_server_ip = "127.0.0.1";
-std::string login_server_id = "ragnarok";
-std::string login_server_pw = "";
-std::string login_server_db = "ragnarok";
+char login_server_ip[64] = "127.0.0.1";
+char login_server_id[32] = "ragnarok";
+char login_server_pw[32] = "";
+char login_server_db[32] = "ragnarok";
 
 int  char_server_port = 3306;
-std::string char_server_ip = "127.0.0.1";
-std::string char_server_id = "ragnarok";
-std::string char_server_pw = "";
-std::string char_server_db = "ragnarok";
+char char_server_ip[64] = "127.0.0.1";
+char char_server_id[32] = "ragnarok";
+char char_server_pw[32] = "";
+char char_server_db[32] = "ragnarok";
 
 int web_server_port = 3306;
-std::string web_server_ip = "127.0.0.1";
-std::string web_server_id = "ragnarok";
-std::string web_server_pw = "";
-std::string web_server_db = "ragnarok";
+char web_server_ip[64] = "127.0.0.1";
+char web_server_id[32] = "ragnarok";
+char web_server_pw[32] = "";
+char web_server_db[32] = "ragnarok";
 
-std::string default_codepage = "";
+char default_codepage[32] = "";
 
 Sql * login_handle = NULL;
 Sql * char_handle = NULL;
@@ -70,6 +70,7 @@ char guild_emblems_table[32] = "guild_emblems";
 char user_configs_table[32] = "user_configs";
 char char_configs_table[32] = "char_configs";
 char merchant_configs_table[32] = "merchant_configs";
+char party_agency_table[32] = "party_agency";
 char guild_db_table[32] = "guild";
 char char_db_table[32] = "char";
 
@@ -174,37 +175,37 @@ int inter_config_read(const char* cfgName)
 		else if (!strcmpi(w1, "emblem_transparency_limit"))
 			inter_config.emblem_woe_change = config_switch(w2) == 1;
 		else if(!strcmpi(w1,"login_server_ip"))
-			login_server_ip = w2;
+			safestrncpy(login_server_ip,w2,sizeof(login_server_ip));
 		else if(!strcmpi(w1,"login_server_port"))
 			login_server_port = atoi(w2);
 		else if(!strcmpi(w1,"login_server_id"))
-			login_server_id = w2;
+			safestrncpy(login_server_id,w2,sizeof(login_server_id));
 		else if(!strcmpi(w1,"login_server_pw"))
-			login_server_pw = w2;
+			safestrncpy(login_server_pw,w2,sizeof(login_server_pw));
 		else if(!strcmpi(w1,"login_server_db"))
-			login_server_db = w2;
+			safestrncpy(login_server_db,w2,sizeof(login_server_db));
 		else if(!strcmpi(w1,"char_server_ip"))
-			char_server_ip = w2;
+			safestrncpy(char_server_ip,w2,sizeof(char_server_ip));
 		else if(!strcmpi(w1,"char_server_port"))
 			char_server_port = atoi(w2);
 		else if(!strcmpi(w1,"char_server_id"))
-			char_server_id = w2;
+			safestrncpy(char_server_id,w2,sizeof(char_server_id));
 		else if(!strcmpi(w1,"char_server_pw"))
-			char_server_pw = w2;
+			safestrncpy(char_server_pw,w2,sizeof(char_server_pw));
 		else if(!strcmpi(w1,"char_server_db"))
-			char_server_db = w2;
+			safestrncpy(char_server_db,w2,sizeof(char_server_db));
 		else if(!strcmpi(w1,"web_server_ip"))
-			web_server_ip = w2;
+			safestrncpy(web_server_ip,w2,sizeof(web_server_ip));
 		else if(!strcmpi(w1,"web_server_port"))
 			web_server_port = atoi(w2);
 		else if(!strcmpi(w1,"web_server_id"))
-			web_server_id = w2;
+			safestrncpy(web_server_id,w2,sizeof(web_server_id));
 		else if(!strcmpi(w1,"web_server_pw"))
-			web_server_pw = w2;
+			safestrncpy(web_server_pw,w2,sizeof(web_server_pw));
 		else if(!strcmpi(w1,"web_server_db"))
-			web_server_db = w2;
+			safestrncpy(web_server_db,w2,sizeof(web_server_db));
 		else if(!strcmpi(w1,"default_codepage"))
-			default_codepage = w2;
+			safestrncpy(default_codepage,w2,sizeof(default_codepage));
 		else if (!strcmpi(w1, "user_configs"))
 			safestrncpy(user_configs_table, w2, sizeof(user_configs_table));
 		else if (!strcmpi(w1, "char_configs"))
@@ -219,6 +220,8 @@ int inter_config_read(const char* cfgName)
 			safestrncpy(guild_db_table, w2, sizeof(guild_db_table));
 		else if (!strcmpi(w1, "char_db"))
 			safestrncpy(char_db_table, w2, sizeof(char_db_table));
+		else if (!strcmpi(w1, "party_agency"))
+			safestrncpy(party_agency_table, w2, sizeof(party_agency_table));
 		else if(!strcmpi(w1,"import"))
 			inter_config_read(w2);
 	}
@@ -249,55 +252,55 @@ int web_sql_init(void) {
 	login_handle = Sql_Malloc();
 	ShowInfo("Connecting to the Login DB server.....\n");
 
-	if (SQL_ERROR == Sql_Connect(login_handle, login_server_id.c_str(), login_server_pw.c_str(), login_server_ip.c_str(), login_server_port, login_server_db.c_str())) {
+	if (SQL_ERROR == Sql_Connect(login_handle, login_server_id, login_server_pw, login_server_ip, login_server_port, login_server_db)) {
 		ShowError("Couldn't connect with uname='%s',passwd='%s',host='%s',port='%d',database='%s'\n",
-			login_server_id.c_str(), login_server_pw.c_str(), login_server_ip.c_str(), login_server_port, login_server_db.c_str());
+			login_server_id, login_server_pw, login_server_ip, login_server_port, login_server_db);
 		Sql_ShowDebug(login_handle);
 		Sql_Free(login_handle);
 		exit(EXIT_FAILURE);
 	}
 	ShowStatus("Connect success! (Login Server Connection)\n");
 
-	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(login_handle, default_codepage.c_str()))
+	if (strlen(default_codepage) > 0) {
+		if (SQL_ERROR == Sql_SetEncoding(login_handle, default_codepage))
 			Sql_ShowDebug(login_handle);
 	}
 
 	char_handle = Sql_Malloc();
 	ShowInfo("Connecting to the Char DB server.....\n");
 
-	if (SQL_ERROR == Sql_Connect(char_handle, char_server_id.c_str(), char_server_pw.c_str(), char_server_ip.c_str(), char_server_port, char_server_db.c_str())) {
+	if (SQL_ERROR == Sql_Connect(char_handle, char_server_id, char_server_pw, char_server_ip, char_server_port, char_server_db)) {
 		ShowError("Couldn't connect with uname='%s',passwd='%s',host='%s',port='%d',database='%s'\n",
-			char_server_id.c_str(), char_server_pw.c_str(), char_server_ip.c_str(), char_server_port, char_server_db.c_str());
+			char_server_id, char_server_pw, char_server_ip, char_server_port, char_server_db);
 		Sql_ShowDebug(char_handle);
 		Sql_Free(char_handle);
 		exit(EXIT_FAILURE);
 	}
 	ShowStatus("Connect success! (Char Server Connection)\n");
 
-	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(char_handle, default_codepage.c_str()))
+	if (strlen(default_codepage) > 0) {
+		if (SQL_ERROR == Sql_SetEncoding(char_handle, default_codepage))
 			Sql_ShowDebug(char_handle);
 	}
 
 	web_handle = Sql_Malloc();
 	ShowInfo("Connecting to the Web DB server.....\n");
 
-	if (SQL_ERROR == Sql_Connect(web_handle, web_server_id.c_str(), web_server_pw.c_str(), web_server_ip.c_str(), web_server_port, web_server_db.c_str())) {
+	if (SQL_ERROR == Sql_Connect(web_handle, web_server_id, web_server_pw, web_server_ip, web_server_port, web_server_db)) {
 		ShowError("Couldn't connect with uname='%s',passwd='%s',host='%s',port='%d',database='%s'\n",
-			web_server_id.c_str(), web_server_pw.c_str(), web_server_ip.c_str(), web_server_port, web_server_db.c_str());
+			web_server_id, web_server_pw, web_server_ip, web_server_port, web_server_db);
 		Sql_ShowDebug(web_handle);
 		Sql_Free(web_handle);
 		exit(EXIT_FAILURE);
 	}
 	ShowStatus("Connect success! (Web Server Connection)\n");
 
-	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(web_handle, default_codepage.c_str()))
+	if (strlen(default_codepage) > 0) {
+		if (SQL_ERROR == Sql_SetEncoding(web_handle, default_codepage))
 			Sql_ShowDebug(web_handle);
 	}
 
-
+	do_init_party();
 	return 0;
 }
 
@@ -429,21 +432,24 @@ int do_init(int argc, char** argv) {
 	http_server->Post("/charconfig/save", charconfig_save);
 	http_server->Post("/MerchantStore/load", merchantstore_load);
 	http_server->Post("/MerchantStore/save", merchantstore_save);
+	http_server->Post("/party/add", party_add);
+	http_server->Post("/party/del", party_del);
+	http_server->Post("/party/get", party_get);
+	http_server->Post("/party/list", party_list);
+	http_server->Post("/party/search", party_search);
 
 	// set up logger
 	http_server->set_logger(logger);
 	shutdown_callback = do_shutdown;
 
-	runflag = WEBSERVER_ST_STARTING;
+	runflag = WEBSERVER_ST_RUNNING;
 
 	svr_thr = std::thread([] {
 		http_server->listen(web_config.web_ip.c_str(), web_config.web_port);
 	});
 
 	for (int i = 0; i < 10; i++) {
-		if (runflag == CORE_ST_STOP)
-			return 0;
-		if (http_server->is_running())
+		if (http_server->is_running() || runflag != WEBSERVER_ST_RUNNING)
 			break;
 		ShowDebug("Web server not running, sleeping 1 second.\n");
 		std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -455,7 +461,6 @@ int do_init(int argc, char** argv) {
 		return 0;
 	}
 
-	runflag = WEBSERVER_ST_RUNNING;
 	ShowStatus("The web-server is " CL_GREEN "ready" CL_RESET " (Server is listening on the port %u).\n\n", web_config.web_port);
 	return 0;
 #endif

@@ -12,6 +12,7 @@
 #include "../common/nullpo.hpp"
 #include "../common/showmsg.hpp"
 #include "../common/utilities.hpp"
+#include "../common/utils.hpp"
 
 #include "battle.hpp"
 #include "chrif.hpp"
@@ -157,15 +158,14 @@ int storage_storageopen(struct map_session_data *sd)
  * @param b : item 2
  * @return 1:same, 0:are different
  */
-int compare_item(struct item *a, struct item *b)
+int compare_item(struct item *a, struct item *b, short flag)
 {
 	if( a->nameid == b->nameid &&
 		a->identify == b->identify &&
 		a->refine == b->refine &&
 		a->attribute == b->attribute &&
-		a->expire_time == b->expire_time &&
-		a->bound == b->bound &&
-		a->unique_id == b->unique_id
+		(flag&1 || (a->expire_time == b->expire_time && a->bound == b->bound 
+					&& a->unique_id == b->unique_id))
 		)
 	{
 		int i;
@@ -264,7 +264,7 @@ static int storage_additem(struct map_session_data* sd, struct s_storage *stor, 
 
 	if( itemdb_isstackable2(data) ) { // Stackable
 		for( i = 0; i < stor->max_amount; i++ ) {
-			if( compare_item(&stor->u.items_storage[i], it) ) { // existing items found, stack them
+			if( compare_item(&stor->u.items_storage[i], it,0) ) { // existing items found, stack them
 				if( amount > MAX_AMOUNT - stor->u.items_storage[i].amount || ( data->stack.storage && amount > data->stack.amount - stor->u.items_storage[i].amount ) )
 					return 2;
 
@@ -546,6 +546,26 @@ void storage_guild_delete(int guild_id)
 	guild_storage_db.erase(guild_id);
 }
 
+/*==========================================
+ * Add an item to the storage
+ *------------------------------------------*/
+int storage_additem2(struct map_session_data *sd, struct item* item_data, int amount)
+{
+	nullpo_ret(sd);
+	nullpo_ret(item_data);
+
+	if( sd->storage.amount > sd->storage.max_amount )
+		return 0;
+	if( item_data->nameid <= 0 || amount <= 0 )
+		return 0;
+	if( amount > MAX_AMOUNT )
+		return 0;
+	if( storage_additem(sd,&sd->storage,item_data,amount) == 0 )
+		return 1;
+
+	return 0;
+}
+
 /**
  * Attempt to open guild storage for player
  * @param sd : player
@@ -737,6 +757,8 @@ bool storage_guild_additem(struct map_session_data* sd, struct s_storage* stor, 
 	if(item_data->nameid == 0 || amount <= 0)
 		return false;
 
+	pc_check_security_retr(sd, SECU_GUILD_STORAGE, false);
+
 	id = itemdb_search(item_data->nameid);
 
 	if( id->stack.guild_storage && amount > id->stack.amount ) // item stack limitation
@@ -752,9 +774,16 @@ bool storage_guild_additem(struct map_session_data* sd, struct s_storage* stor, 
 		return false;
 	}
 
+	//Brian Bg Items - updated by [AnubisK]
+	if( item_data->card[0]==CARD0_CREATE && (MakeDWord(item_data->card[2],item_data->card[3]) == (battle_config.bg_reserved_char_id || battle_config.woe_reserved_char_id)  && !battle_config.bg_can_trade))
+	{	// "Battleground's Items"
+		clif_displaymessage (sd->fd, msg_txt(sd,264));
+		return 1;
+	}
+
 	if(itemdb_isstackable2(id)) { //Stackable
 		for(i = 0; i < stor->max_amount; i++) {
-			if(compare_item(&stor->u.items_guild[i], item_data)) {
+			if(compare_item(&stor->u.items_guild[i], item_data,0)) {
 				if( amount > MAX_AMOUNT - stor->u.items_guild[i].amount || ( id->stack.guild_storage && amount > id->stack.amount - stor->u.items_guild[i].amount ) )
 					return false;
 
@@ -794,22 +823,21 @@ bool storage_guild_additem(struct map_session_data* sd, struct s_storage* stor, 
  * @return True : success, False : fail
  */
 bool storage_guild_additem2(struct s_storage* stor, struct item* item, int amount) {
+	struct item_data *id;
 	int i;
 
 	nullpo_ret(stor);
 	nullpo_ret(item);
 
-	if (item->nameid == 0 || amount <= 0)
+	if (item->nameid == 0 || amount <= 0 || !(id = itemdb_exists(item->nameid)))
 		return false;
 
-	std::shared_ptr<item_data> id = item_db.find(item->nameid);
-
-	if (id == nullptr || item->expire_time)
+	if (item->expire_time)
 		return false;
 
-	if (itemdb_isstackable2(id.get())) { // Stackable
+	if (itemdb_isstackable2(id)) { // Stackable
 		for (i = 0; i < stor->max_amount; i++) {
-			if (compare_item(&stor->u.items_guild[i], item)) {
+			if (compare_item(&stor->u.items_guild[i], item,0)) {
 				// Set the amount, make it fit with max amount
 				amount = min(amount, ((id->stack.guild_storage) ? id->stack.amount : MAX_AMOUNT) - stor->u.items_guild[i].amount);
 				if (amount != item->amount)
@@ -925,6 +953,8 @@ void storage_guild_storageget(struct map_session_data* sd, int index, int amount
 
 	if(index < 0 || index >= stor->max_amount)
 		return;
+
+	pc_check_security_retv(sd, SECU_GUILD_STORAGE);
 
 	if(stor->u.items_guild[index].nameid == 0)
 		return;

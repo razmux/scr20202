@@ -57,7 +57,7 @@ int inter_recv_packet_length[] = {
 	 6,-1, 0, 0,  0, 0, 0, 0, 10,-1, 0, 0,  0, 0,  0, 0,	// 3010-
 	-1,10,-1,14, 15+NAME_LENGTH,19, 6,-1, 14,14, 6, 0,  0, 0,  0, 0,	// 3020- Party
 	-1, 6,-1,-1, 55,19, 6,-1, 14,-1,-1,-1, 18,19,186,-1,	// 3030-
-	-1, 9,10, 0,  0, 0, 0, 0,  8, 6,11,10, 10,-1,6+NAME_LENGTH, 0,	// 3040-
+	-1, 9,10, -1,  0, 0, 0, 0,  8, 6,11,10, 10,-1,6+NAME_LENGTH, 0,	// 3040- [BG] 0x3043 Guild Rank
 	-1,-1,10,10,  0,-1,12, 0,  0, 0, 0, 0,  0, 0,  0, 0,	// 3050-  Auction System [Zephyrus]
 	 6,-1, 6,-1, 16+NAME_LENGTH+ACHIEVEMENT_NAME_LENGTH, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0,	// 3060-  Quest system [Kevin] [Inkfish] / Achievements [Aleos]
 	-1,10, 6,-1,  0, 0, 0, 0,  0, 0, 0, 0, -1,10,  6,-1,	// 3070-  Mercenary packets [Zephyrus], Elemental packets [pakpil]
@@ -1428,6 +1428,29 @@ int inter_check_length(int fd, int length)
 		return 0;
 
 	return length;
+}
+
+/**
+ * Check if account is unlocked for char deletion
+ * @param account_id
+ * @return False:If can't, True:If can be deleted.
+ * @author [Cydh]
+ **/
+bool inter_can_delete_char(unsigned int account_id) {
+	bool can_delete = true;
+
+	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `value` FROM `%s` WHERE `account_id`='%d' AND `key` = '#CyACCOUNTLOCK' LIMIT 1", schema_config.acc_reg_num_table, account_id)) {
+		Sql_ShowDebug(sql_handle);
+		return true;
+	}
+
+	if (Sql_NumRows(sql_handle) > 0 && SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+		char *data;
+		Sql_GetData(sql_handle, 0, &data, NULL);
+		can_delete = atoi(data) ? false : true;
+	}
+	Sql_FreeResult(sql_handle);
+	return can_delete;
 }
 
 int inter_parse_frommap(int fd)

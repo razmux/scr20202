@@ -1,0 +1,71 @@
+diff a/src/map/clif.cpp b/src/map/clif.cpp	(rejected hunks)
+@@ -22730,6 +22775,69 @@ void clif_parse_inventory_expansion_reject( int fd, struct map_session_data* sd
+ #endif
+ }
+ 
++void clif_parse_CashShopLimited( int fd, struct map_session_data* sd ){
++#if PACKETVER >= 20190724
++	clif_CashShopLimited(sd);
++#endif
++}
++
++int clif_CashShopLimited_sub(struct map_session_data *sd,va_list ap)
++{
++	clif_CashShopLimited(sd);
++
++	return 1;
++}
++
++void clif_CashShopLimited( struct map_session_data* sd ){
++#if PACKETVER >= 20190724
++	int i, j;
++
++	int fd = sd->fd;
++
++	time_t now = time(NULL);
++	struct sale_item_data* sale_item;
++
++	int len = sizeof( struct PACKET_ZC_SE_CASHSHOP_LIMITED_REQ ) + sale_items.count * sizeof(struct SE_CASHSHOP_LIMITED_REQ_sub);
++
++	WFIFOHEAD( fd, len );
++	struct PACKET_ZC_SE_CASHSHOP_LIMITED_REQ *p = (struct PACKET_ZC_SE_CASHSHOP_LIMITED_REQ *)WFIFOP( fd, 0 );
++
++	p->packetType = HEADER_ZC_SE_CASHSHOP_LIMITED_REQ;
++	p->unknow = 0;
++
++	int count = 0;
++	for( i = 0; i < sale_items.count; i++ ){
++		sale_item = sale_items.item[i];
++		if( sale_item->start <= now && sale_item->end > now ){
++			ARR_FIND( 0, cash_shop_items[CASHSHOP_TAB_SALE].count, j, sale_item->nameid == cash_shop_items[CASHSHOP_TAB_SALE].item[j]->nameid );
++
++			int sale_amount = 0;
++			for(auto &it : sd->sales){
++				if(it.first == sale_item->id){
++					sale_amount = it.second;
++					break;
++				}
++			}
++
++			if(sale_amount == -1)
++				continue;
++
++			int temp_amount = sale_amount ? sale_amount : sale_item->amount;
++			p->list[count].nameid = sale_item->nameid;
++			p->list[count].amount = sale_item->amount;
++			p->list[count].amountLeft = temp_amount;
++			p->list[count].price = cash_shop_items[CASHSHOP_TAB_SALE].item[j]->price;
++			p->list[count].startTime = static_cast<uint32>(sale_item->start);
++			p->list[count].endTime = static_cast<uint32>(sale_item->end);
++			count++;
++		}
++	}
++	p->packetLength = sizeof(PACKET_ZC_SE_CASHSHOP_LIMITED_REQ) + count * sizeof(struct SE_CASHSHOP_LIMITED_REQ_sub);
++
++	WFIFOSET( fd, p->packetLength );
++#endif
++}
++
+ void clif_barter_open( struct map_session_data& sd, struct npc_data& nd ){
+ #if PACKETVER_MAIN_NUM >= 20190116 || PACKETVER_RE_NUM >= 20190116 || PACKETVER_ZERO_NUM >= 20181226
+ 	if( nd.subtype != NPCTYPE_BARTER || nd.u.barter.extended || sd.state.barter_open ){

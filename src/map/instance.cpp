@@ -17,6 +17,7 @@
 #include "../common/timer.hpp"
 #include "../common/utilities.hpp"
 
+#include "battle.hpp"
 #include "clan.hpp"
 #include "clif.hpp"
 #include "guild.hpp"
@@ -39,6 +40,7 @@ int16 instance_start = 0; // Instance MapID start
 int instance_count = 1; // Total created instances
 
 std::unordered_map<int, std::shared_ptr<s_instance_data>> instances;
+std::unordered_map<int, std::shared_ptr<s_instance_mode_db>> instance_mode; //[Easycore]
 
 const std::string InstanceDatabase::getDefaultLocation() {
 	return std::string(db_path) + "/instance_db.yml";
@@ -88,13 +90,10 @@ uint64 InstanceDatabase::parseBodyNode(const ryml::NodeRef& node) {
 	}
 
 	if (this->nodeExists(node, "TimeLimit")) {
-		int64 limit;
+		uint32 limit;
 
-		if (!this->asInt64(node, "TimeLimit", limit))
+		if (!this->asUInt32(node, "TimeLimit", limit))
 			return 0;
-
-		if (limit == 0) // Infinite duration
-			limit = INT64_MAX;
 
 		instance->limit = limit;
 	} else {
@@ -103,13 +102,10 @@ uint64 InstanceDatabase::parseBodyNode(const ryml::NodeRef& node) {
 	}
 
 	if (this->nodeExists(node, "IdleTimeOut")) {
-		int64 idle;
+		uint32 idle;
 
-		if (!this->asInt64(node, "IdleTimeOut", idle))
+		if (!this->asUInt32(node, "IdleTimeOut", idle))
 			return 0;
-
-		if (idle == 0) // Infinite duration
-			idle = INT64_MAX;
 
 		instance->timeout = idle;
 	} else {
@@ -153,6 +149,24 @@ uint64 InstanceDatabase::parseBodyNode(const ryml::NodeRef& node) {
 	} else {
 		if (!exists)
 			instance->destroyable = true;
+	}
+
+	if (this->nodeExists(node, "Difficulty")) {
+		int64 constant;
+		std::string diff;
+
+		if (!this->asString(node, "Difficulty", diff))
+			return 0;
+
+		if( !script_get_constant(diff.c_str(),&constant ) ){
+			this->invalidWarning(node["Difficulty"], "Unknown Difficulty Mode '%s', skipping.\n", diff.c_str());
+			return 0;
+		}
+
+		instance->difficulty = static_cast<e_instance_difficulty>(constant);
+	} else {
+		if (!exists)
+			instance->difficulty = ID_NORMAL;
 	}
 
 	if (this->nodeExists(node, "Enter")) {
@@ -234,6 +248,260 @@ uint64 InstanceDatabase::parseBodyNode(const ryml::NodeRef& node) {
 }
 
 InstanceDatabase instance_db;
+
+
+const std::string InstanceModeDatabase::getDefaultLocation() {
+	return std::string(db_path) + "/instance_mode_db.yml";
+}
+
+/**
+ * Reads and parses an entry from the instance_db.
+ * @param node: YAML node containing the entry.
+ * @return count of successfully parsed rows
+ */
+uint64 InstanceModeDatabase::parseBodyNode(const ryml::NodeRef& node) {
+	e_instance_difficulty instance_id;
+	int64 constant;
+	std::string mode;
+
+	if (!this->asString(node, "Mode", mode))
+		return 0;
+
+	if( !script_get_constant(mode.c_str(),&constant ) ){
+		this->invalidWarning(node["Mode"], "Unknown Difficulty Mode '%s', skipping.\n", mode.c_str());
+		return 0;
+	}
+
+	instance_id = static_cast<e_instance_difficulty>(constant);
+
+	if (instance_id < ID_EASY || instance_id >= ID_MAX) {
+		this->invalidWarning(node, "Instance Mode is invalid. Valid range 1~%d, skipping.\n", ID_MAX-1);
+		return 0;
+	}
+	uint16 value;
+
+	std::shared_ptr<s_instance_mode_db> instance = this->find(instance_id);
+	bool exists = instance != nullptr;
+
+	if (!exists) {
+		instance = std::make_shared<s_instance_mode_db>();
+		instance->id = instance_id;
+	}
+
+	if (this->nodeExists(node, "Exp Rate")) {
+		if (!this->asUInt16(node, "Exp Rate", value))
+			return 0;
+		instance->exp_rate = value;
+	} else {
+		if (!exists)
+			instance->exp_rate = 100;
+	}
+
+	if (this->nodeExists(node, "Drop Rate")) {
+		if (!this->asUInt16(node, "Drop Rate", value))
+			return 0;
+		instance->drop_rate = value;
+	} else {
+		if (!exists)
+			instance->drop_rate = 100;
+	}
+
+	if (this->nodeExists(node, "HP")) {
+		if (!this->asUInt16(node, "HP", value))
+			return 0;
+		instance->hp = value;
+	} else {
+		if (!exists)
+			instance->hp = 100;
+	}
+
+	if (this->nodeExists(node, "Speed")) {
+		if (!this->asUInt16(node, "Speed", value))
+			return 0;
+		instance->speed = value;
+	} else {
+		if (!exists)
+			instance->speed = 100;
+	}
+
+	if (this->nodeExists(node, "STR")) {
+		if (!this->asUInt16(node, "STR", value))
+			return 0;
+		instance->str = value;
+	} else {
+		if (!exists)
+			instance->str = 100;
+	}
+
+	if (this->nodeExists(node, "AGI")) {
+		if (!this->asUInt16(node, "AGI", value))
+			return 0;
+		instance->agi = value;
+	} else {
+		if (!exists)
+			instance->agi = 100;
+	}
+
+	if (this->nodeExists(node, "VIT")) {
+		if (!this->asUInt16(node, "VIT", value))
+			return 0;
+		instance->vit = value;
+	} else {
+		if (!exists)
+			instance->vit = 100;
+	}
+
+	if (this->nodeExists(node, "INT")) {
+		if (!this->asUInt16(node, "INT", value))
+			return 0;
+		instance->int_ = value;
+	} else {
+		if (!exists)
+			instance->int_ = 100;
+	}
+
+	if (this->nodeExists(node, "DEX")) {
+		if (!this->asUInt16(node, "DEX", value))
+			return 0;
+		instance->dex = value;
+	} else {
+		if (!exists)
+			instance->dex = 100;
+	}
+
+	if (this->nodeExists(node, "LUK")) {
+		if (!this->asUInt16(node, "LUK", value))
+			return 0;
+		instance->luk = value;
+	} else {
+		if (!exists)
+			instance->luk = 100;
+	}
+
+	if (this->nodeExists(node, "ATK")) {
+		if (!this->asUInt16(node, "ATK", value))
+			return 0;
+		instance->atk = value;
+	} else {
+		if (!exists)
+			instance->atk = 100;
+	}
+
+	if (this->nodeExists(node, "ATK2")) {
+		if (!this->asUInt16(node, "ATK2", value))
+			return 0;
+		instance->atk2 = value;
+	} else {
+		if (!exists)
+			instance->atk2 = 100;
+	}
+
+	if (this->nodeExists(node, "MATK")) {
+		if (!this->asUInt16(node, "MATK", value))
+			return 0;
+		instance->matk_min = value;
+	} else {
+		if (!exists)
+			instance->matk_min = 100;
+	}
+
+	if (this->nodeExists(node, "MATK2")) {
+		if (!this->asUInt16(node, "MATK2", value))
+			return 0;
+		instance->matk_max = value;
+	} else {
+		if (!exists)
+			instance->matk_max = 100;
+	}
+
+	if (this->nodeExists(node, "DEF")) {
+		if (!this->asUInt16(node, "DEF", value))
+			return 0;
+		instance->def = value;
+	} else {
+		if (!exists)
+			instance->def = 100;
+	}
+
+	if (this->nodeExists(node, "MDEF")) {
+		if (!this->asUInt16(node, "MDEF", value))
+			return 0;
+		instance->mdef = value;
+	} else {
+		if (!exists)
+			instance->mdef = 100;
+	}
+
+	if (this->nodeExists(node, "HIT")) {
+		if (!this->asUInt16(node, "HIT", value))
+			return 0;
+		instance->hit = value;
+	} else {
+		if (!exists)
+			instance->hit = 100;
+	}
+
+	if (this->nodeExists(node, "FLEE")) {
+		if (!this->asUInt16(node, "FLEE", value))
+			return 0;
+		instance->flee = value;
+	} else {
+		if (!exists)
+			instance->flee = 100;
+	}
+
+	if (this->nodeExists(node, "FLEE2")) {
+		if (!this->asUInt16(node, "FLEE2", value))
+			return 0;
+		instance->flee2 = value;
+	} else {
+		if (!exists)
+			instance->flee2 = 100;
+	}
+
+	if (this->nodeExists(node, "CRI")) {
+		if (!this->asUInt16(node, "CRI", value))
+			return 0;
+		instance->cri = value;
+	} else {
+		if (!exists)
+			instance->cri = 100;
+	}
+
+	if (this->nodeExists(node, "AMOTION")) {
+		if (!this->asUInt16(node, "AMOTION", value))
+			return 0;
+		instance->amotion = value;
+	} else {
+		if (!exists)
+			instance->amotion = 100;
+	}
+
+	if (this->nodeExists(node, "ADELAY")) {
+		if (!this->asUInt16(node, "ADELAY", value))
+			return 0;
+		instance->adelay = value;
+	} else {
+		if (!exists)
+			instance->adelay = 100;
+	}
+
+	if (this->nodeExists(node, "DMOTION")) {
+		if (!this->asUInt16(node, "DMOTION", value))
+			return 0;
+		instance->dmotion = value;
+	} else {
+		if (!exists)
+			instance->dmotion = 100;
+	}
+
+	if (!exists)
+		this->put(instance_id, instance);
+
+	return 1;
+}
+
+InstanceModeDatabase instance_mode_db;
 
 /**
  * Searches for an instance name in the database
@@ -365,7 +633,7 @@ static TIMER_FUNC(instance_subscription_timer){
 bool instance_startkeeptimer(std::shared_ptr<s_instance_data> idata, int instance_id)
 {
 	// No timer
-	if (!idata || idata->keep_timer != INVALID_TIMER)
+	if (!idata || idata->keep_timer != INVALID_TIMER || idata->keep_limit == 0)
 		return false;
 
 	std::shared_ptr<s_instance_db> db = instance_db.find(idata->id);
@@ -374,7 +642,7 @@ bool instance_startkeeptimer(std::shared_ptr<s_instance_data> idata, int instanc
 		return false;
 
 	// Add timer
-	idata->keep_limit = time(nullptr) + db->limit;
+	idata->keep_limit = static_cast<unsigned int>(time(nullptr)) + db->limit;
 	idata->keep_timer = add_timer(gettick() + db->limit * 1000, instance_delete_timer, instance_id, 0);
 
 	switch(idata->mode) {
@@ -382,19 +650,19 @@ bool instance_startkeeptimer(std::shared_ptr<s_instance_data> idata, int instanc
 			break;
 		case IM_CHAR:
 			if (map_charid2sd(idata->owner_id)) // Notify player of the added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_PARTY:
 			if (party_search(idata->owner_id)) // Notify party of the added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_GUILD:
 			if (guild_search(idata->owner_id)) // Notify guild of the added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_CLAN:
 			if (clan_search(idata->owner_id)) // Notify clan of the added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		default:
 			return false;
@@ -421,7 +689,7 @@ bool instance_startidletimer(std::shared_ptr<s_instance_data> idata, int instanc
 		return false;
 
 	// Add the timer
-	idata->idle_limit = time(nullptr) + db->timeout;
+	idata->idle_limit = static_cast<unsigned int>(time(nullptr)) + db->timeout;
 	idata->idle_timer = add_timer(gettick() + db->timeout * 1000, instance_delete_timer, instance_id, 0);
 
 	switch(idata->mode) {
@@ -429,19 +697,19 @@ bool instance_startidletimer(std::shared_ptr<s_instance_data> idata, int instanc
 			break;
 		case IM_CHAR:
 			if (map_charid2sd(idata->owner_id)) // Notify player of added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_PARTY:
 			if (party_search(idata->owner_id)) // Notify party of added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_GUILD:
 			if (guild_search(idata->owner_id)) // Notify guild of added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_CLAN:
 			if (clan_search(idata->owner_id)) // Notify clan of added instance timer
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		default:
 			return false;
@@ -463,7 +731,6 @@ bool instance_stopidletimer(std::shared_ptr<s_instance_data> idata, int instance
 		return false;
 
 	// Delete the timer - Party has returned or instance is destroyed
-	idata->idle_limit = 0;
 	delete_timer(idata->idle_timer, instance_delete_timer);
 	idata->idle_timer = INVALID_TIMER;
 
@@ -472,19 +739,19 @@ bool instance_stopidletimer(std::shared_ptr<s_instance_data> idata, int instance
 			break;
 		case IM_CHAR:
 			if (map_charid2sd(idata->owner_id)) // Notify the player
-				clif_instance_changestatus(instance_id, IN_NOTIFY, static_cast<uint32>(idata->idle_limit));
+				clif_instance_changestatus(instance_id, IN_NOTIFY, 0);
 			break;
 		case IM_PARTY:
 			if (party_search(idata->owner_id)) // Notify the party
-				clif_instance_changestatus(instance_id, IN_NOTIFY, static_cast<uint32>(idata->idle_limit));
+				clif_instance_changestatus(instance_id, IN_NOTIFY, 0);
 			break;
 		case IM_GUILD:
 			if (guild_search(idata->owner_id)) // Notify the guild
-				clif_instance_changestatus(instance_id, IN_NOTIFY, static_cast<uint32>(idata->idle_limit));
+				clif_instance_changestatus(instance_id, IN_NOTIFY, 0);
 			break;
 		case IM_CLAN:
 			if (clan_search(idata->owner_id)) // Notify the clan
-				clif_instance_changestatus(instance_id, IN_NOTIFY, static_cast<uint32>(idata->idle_limit));
+				clif_instance_changestatus(instance_id, IN_NOTIFY, 0);
 			break;
 		default:
 			return false;
@@ -560,7 +827,7 @@ void instance_addnpc(std::shared_ptr<s_instance_data> idata)
  * @param mode: Instance mode
  * @return -4 = no free instances | -3 = already exists | -2 = character/party/guild not found | -1 = invalid type | On success return instance_id
  */
-int instance_create(int owner_id, const char *name, e_instance_mode mode) {
+int instance_create(int owner_id, const char *name, e_instance_mode mode, e_instance_difficulty difficulty) {
 	std::shared_ptr<s_instance_db> db = instance_search_db_name(name);
 
 	if (!db) {
@@ -622,6 +889,10 @@ int instance_create(int owner_id, const char *name, e_instance_mode mode) {
 	entry->id = db->id;
 	entry->owner_id = owner_id;
 	entry->mode = mode;
+	if (difficulty) //[Easycore]
+		entry->difficulty = difficulty;
+	else
+		entry->difficulty = db->difficulty;
 	entry->regs.vars = i64db_alloc(DB_OPT_RELEASE_DATA);
 	entry->regs.arrays = nullptr;
 	instances.insert({ instance_id, entry });
@@ -684,8 +955,15 @@ int instance_addmap(int instance_id) {
 
 	// Set to busy, update timers
 	idata->state = INSTANCE_BUSY;
-	idata->idle_limit = time(nullptr) + db->timeout;
-	idata->idle_timer = add_timer(gettick() + db->timeout * 1000, instance_delete_timer, instance_id, 0);
+	if (db->timeout > 0) {
+		idata->idle_limit = static_cast<unsigned int>(time(nullptr)) + db->timeout;
+		idata->idle_timer = add_timer(gettick() + db->timeout * 1000, instance_delete_timer, instance_id, 0);
+	}
+
+	if (db->limit > 0) {
+		//This will allow the instance to get a time in 'instance_startkeeptimer'
+		idata->keep_limit = 1;
+	}
 	idata->nomapflag = db->nomapflag;
 	idata->nonpc = db->nonpc;
 
@@ -697,6 +975,23 @@ int instance_addmap(int instance_id) {
 		return 0;
 	}
 
+	if(map_getmapflag(db->enter.map, MF_MOBITEMDROP)){
+		struct map_data *mapdata_entry_init = map_getmapdata(db->enter.map);
+		struct map_data *mapdata_entry_instance = map_getmapdata(m);
+		for (const auto &it : mapdata_entry_init->mobitemdrop_list){
+			struct s_mobitemdrop_list mid;
+			mid.mob_id = it.mob_id;
+			for (const auto &it_sub : it.mobitemdrop_sub_list){
+				struct s_mobitemdrop_sub_list mid_sub;
+				mid_sub.drop_id = it_sub.drop_id;
+				mid_sub.drop_per = it_sub.drop_per;
+				mid_sub.annunce = it_sub.annunce;
+				mid.mobitemdrop_sub_list.push_back(mid_sub);
+			}
+			mapdata_entry_instance->mobitemdrop_list.push_back(mid);
+		}
+	}
+	
 	struct s_instance_map entry;
 
 	entry.m = m;
@@ -712,6 +1007,22 @@ int instance_addmap(int instance_id) {
 			entry.m = m;
 			entry.src_m = it;
 			idata->map.push_back(entry);
+			if(map_getmapflag(it, MF_MOBITEMDROP)){
+				struct map_data *mapdata_entry_init = map_getmapdata(it);
+				struct map_data *mapdata_entry_instance = map_getmapdata(m);
+				for (const auto &it : mapdata_entry_init->mobitemdrop_list){
+					struct s_mobitemdrop_list mid;
+					mid.mob_id = it.mob_id;
+					for (const auto &it_sub : it.mobitemdrop_sub_list){
+						struct s_mobitemdrop_sub_list mid_sub;
+						mid_sub.drop_id = it_sub.drop_id;
+						mid_sub.drop_per = it_sub.drop_per;
+						mid_sub.annunce = it_sub.annunce;
+						mid.mobitemdrop_sub_list.push_back(mid_sub);
+					}
+					mapdata_entry_instance->mobitemdrop_list.push_back(mid);
+				}
+			}
 		}
 	}
 
@@ -724,19 +1035,19 @@ int instance_addmap(int instance_id) {
 			break;
 		case IM_CHAR:
 			if (map_charid2sd(idata->owner_id)) // Inform player of the created instance
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_PARTY:
 			if (party_search(idata->owner_id)) // Inform party members of the created instance
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_GUILD:
 			if (guild_search(idata->owner_id)) // Inform guild members of the created instance
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		case IM_CLAN:
 			if (clan_search(idata->owner_id)) // Inform clan members of the created instance
-				clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+				clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			break;
 		default:
 			return 0;
@@ -794,6 +1105,58 @@ int16 instance_mapid(int16 m, int instance_id)
 	}
 
 	return m;
+}
+
+/**
+ * Returns an instance map ID
+ * @param m: Source map ID
+ * @param instance_id: Instance to search
+ * @return Map ID in this instance or -1 on failure
+ */
+void instance_setpenalty(struct map_session_data *sd)
+{
+	if (!sd)
+		return;
+
+	char output[CHAT_SIZE_MAX];
+	std::shared_ptr<s_instance_data> idata = util::umap_find(instances, map_getmapdata(sd->bl.m)->instance_id);
+
+	if (!idata)
+		return;
+
+	if (!idata->sc_penalties.size())
+		return;
+
+	for (const auto& it: idata->sc_penalties) {
+		sc_start(NULL, &sd->bl, it.first, 10000, it.second, INFINITE_TICK);
+		if (battle_config.instance_penalty_show) {
+			switch(it.first) {
+				case SC_ID_CAST:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1520),it.second); break;
+				case SC_ID_ASPD:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1521),it.second); break;
+				case SC_ID_MAXHP:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1522),it.second); break;
+				case SC_ID_MAXSP:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1523),it.second); break;
+				case SC_ID_ALLSTATS:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1524),it.second); break;
+				case SC_ID_SPEED:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1525),it.second); break;
+				case SC_ID_ATK:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1526),it.second); break;
+				case SC_ID_MATK:
+					safesnprintf(output,sizeof(output),msg_txt(sd,1527),it.second); break;
+				default:
+					memset(output, 0, sizeof(output));
+					break;
+			}
+			if (strlen(output))
+				clif_messagecolor(&sd->bl, color_table[COLOR_RED], output, false, SELF);
+		}
+	}
+
+	return;
 }
 
 /**
@@ -934,7 +1297,7 @@ bool instance_destroy(int instance_id)
 			}
 		}
 	} else {
-		int64 now = time(nullptr);
+		unsigned int now = static_cast<unsigned int>(time(nullptr));
 
 		if(idata->keep_limit && idata->keep_limit <= now)
 			type = IN_DESTROY_LIVE_TIMEOUT;
@@ -1117,7 +1480,7 @@ bool instance_reqinfo(struct map_session_data *sd, int instance_id)
 	} else if (idata->state == INSTANCE_BUSY) { // Give info on the instance if busy
 		int map_instance_id = map_getmapdata(sd->bl.m)->instance_id;
 		if (map_instance_id == 0 || map_instance_id == instance_id) {
-			clif_instance_status(instance_id, static_cast<uint32>(idata->keep_limit), static_cast<uint32>(idata->idle_limit));
+			clif_instance_status(instance_id, idata->keep_limit, idata->idle_limit);
 			sd->instance_mode = idata->mode;
 		}
 	}
@@ -1134,7 +1497,7 @@ bool instance_addusers(int instance_id)
 {
 	std::shared_ptr<s_instance_data> idata = util::umap_find(instances, instance_id);
 
-	if(!idata || idata->state != INSTANCE_BUSY)
+	if(!idata || idata->state != INSTANCE_BUSY || idata->idle_limit == 0)
 		return false;
 
 	// Stop the idle timer if we had one
@@ -1155,7 +1518,7 @@ bool instance_delusers(int instance_id)
 {
 	std::shared_ptr<s_instance_data> idata = util::umap_find(instances, instance_id);
 
-	if(!idata || idata->state != INSTANCE_BUSY)
+	if(!idata || idata->state != INSTANCE_BUSY || idata->idle_limit == 0)
 		return false;
 
 	int users = 0;
@@ -1170,6 +1533,21 @@ bool instance_delusers(int instance_id)
 		instance_startidletimer(idata, instance_id);
 
 	return true;
+}
+
+/**
+ * Search for a battleground based on the given name
+ * @param name: Battleground name
+ * @return s_battleground_type on success or nullptr on failure
+ */
+std::shared_ptr<s_instance_mode_db> instance_mode_search(e_instance_difficulty mode)
+{
+	for (const auto &it : instance_mode_db) {
+		if (it.second->id == mode)
+			return it.second;
+	}
+
+	return nullptr;
 }
 
 /**
@@ -1190,8 +1568,8 @@ void do_reload_instance(void)
 			// Create new keep timer
 			std::shared_ptr<s_instance_db> db = instance_db.find(idata->id);
 
-			if (db)
-				idata->keep_limit = time(nullptr) + db->limit;
+			if (db && db->limit > 0)
+				idata->keep_limit = static_cast<unsigned int>(time(nullptr)) + db->limit;
 		}
 	}
 
@@ -1253,6 +1631,7 @@ void do_reload_instance(void)
 void do_init_instance(void) {
 	instance_start = map_num;
 	instance_db.load();
+	instance_mode_db.load();
 	instance_wait.timer = INVALID_TIMER;
 
 	add_timer_func_list(instance_delete_timer,"instance_delete_timer");

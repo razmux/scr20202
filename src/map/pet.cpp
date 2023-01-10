@@ -1245,7 +1245,7 @@ int pet_catch_process2(struct map_session_data* sd, int target_id)
 
 	md = (struct mob_data*)map_id2bl(target_id);
 
-	if(!md || md->bl.type != BL_MOB || md->bl.prev == NULL) { // Invalid inputs/state, abort capture.
+	if(!md || md->bl.type != BL_MOB || md->bl.prev == NULL || md->option.is_event) { // Invalid inputs/state, abort capture.
 		clif_pet_roulette(sd,0);
 		sd->catch_target_class = PET_CATCH_FAIL;
 		sd->itemid = 0;
@@ -1408,6 +1408,8 @@ int pet_menu(struct map_session_data *sd,int menunum)
 			clif_send_petstatus(sd);
 			break;
 		case 1:
+			if (pc_check_security(sd, SECU_FEEDING))
+				break;
 			pet_food(sd, sd->pd);
 			break;
 		case 2:

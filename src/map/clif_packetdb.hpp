@@ -1931,19 +1931,7 @@
 	parseable_packet(0x08fb,6,NULL,2);
 	parseable_packet(0x0907,5,clif_parse_MoveItem,2,4);
 	packet(0x0908,5);
-	parseable_packet(0x08D7,28,clif_parse_bg_queue_apply_request,2,4);
-	packet(0x08D8,27);
-	packet(0x08D9,30);
-	parseable_packet(0x08DA,26,clif_parse_bg_queue_cancel_request,2);
-	packet(0x08DB,27);
-	packet(0x08DC,26);
-	parseable_packet(0x08DD,27,clif_parse_dull,2,3);
-	packet(0x08DE,27);
-	packet(0x08DF,50);
-	parseable_packet(0x08E0,51,clif_parse_bg_queue_lobby_reply,2,3,27);
-	packet(0x08E1,51);
-	parseable_packet(0x090A,26,clif_parse_bg_queue_request_queue_number,2);
-	packet( HEADER_ZC_ENTRY_QUEUE_INIT , sizeof(PACKET_ZC_ENTRY_QUEUE_INIT) );
+	parseable_packet(0x08d7,28,NULL,2,4);
 	packet(0x0977,14); //Monster HP Bar
 	parseable_packet(0x0916,26,clif_parse_GuildInvite2,2);
 	parseable_packet(0x091d,41,clif_parse_PartyBookingRegisterReq,2,4,6);
@@ -2134,16 +2122,22 @@
 	parseable_packet(0x098D,-1,clif_parse_clan_chat,2,4);
 	packet(0x098E,-1);
 	// Sale
+#if PACKETVER >= 20190724
+	parseable_packet( HEADER_CZ_REQ_CASH_BARGAIN_SALE_ITEM_INFO, sizeof( PACKET_CZ_REQ_CASH_BARGAIN_SALE_ITEM_INFO ), clif_parse_sale_search, 0 );
+#else
 	parseable_packet( HEADER_CZ_REQ_CASH_BARGAIN_SALE_ITEM_INFO, -1, clif_parse_sale_search, 0 );
+#endif
 	packet( HEADER_ZC_ACK_CASH_BARGAIN_SALE_ITEM_INFO, sizeof( PACKET_ZC_ACK_CASH_BARGAIN_SALE_ITEM_INFO ) );
 	parseable_packet( HEADER_CZ_REQ_APPLY_BARGAIN_SALE_ITEM, sizeof( PACKET_CZ_REQ_APPLY_BARGAIN_SALE_ITEM ), clif_parse_sale_add, 0 );
-	packet(0x09AF,4);
+	packet( HEADER_ZC_ACK_APPLY_BARGAIN_SALE_ITEM, sizeof( PACKET_ZC_ACK_APPLY_BARGAIN_SALE_ITEM ) );
 	parseable_packet( HEADER_CZ_REQ_REMOVE_BARGAIN_SALE_ITEM, sizeof( PACKET_CZ_REQ_REMOVE_BARGAIN_SALE_ITEM ), clif_parse_sale_remove, 0 );
-	packet(0x09B1,4);
+	packet( HEADER_ZC_ACK_REMOVE_BARGAIN_SALE_ITEM, sizeof( PACKET_ZC_ACK_REMOVE_BARGAIN_SALE_ITEM ) );
 	packet( HEADER_ZC_NOTIFY_BARGAIN_SALE_SELLING, sizeof( PACKET_ZC_NOTIFY_BARGAIN_SALE_SELLING ) );
 	packet( HEADER_ZC_NOTIFY_BARGAIN_SALE_CLOSE, sizeof( PACKET_ZC_NOTIFY_BARGAIN_SALE_CLOSE ) );
-	parseable_packet(0x09B4,6,clif_parse_sale_open,2);
-	parseable_packet(0x09BC,6,clif_parse_sale_close,2);
+	parseable_packet( HEADER_CZ_OPEN_BARGAIN_SALE_TOOL , sizeof(PACKET_CZ_OPEN_BARGAIN_SALE_TOOL), clif_parse_sale_open,0);
+	packet (HEADER_ZC_OPEN_BARGAIN_SALE_TOOL, sizeof(PACKET_ZC_OPEN_BARGAIN_SALE_TOOL));
+	parseable_packet( HEADER_CZ_CLOSE_BARGAIN_SALE_TOOL , sizeof(PACKET_CZ_CLOSE_BARGAIN_SALE_TOOL), clif_parse_sale_close,0);
+	packet (HEADER_ZC_CLOSE_BARGAIN_SALE_TOOL, sizeof(PACKET_ZC_CLOSE_BARGAIN_SALE_TOOL));
 	parseable_packet(0x09C3,8,clif_parse_sale_refresh,2,6);
 	packet( HEADER_ZC_ACK_COUNT_BARGAIN_SALE_ITEM, sizeof( PACKET_ZC_ACK_COUNT_BARGAIN_SALE_ITEM ) );
 	// New Packet
@@ -2156,12 +2150,16 @@
 
 // 2014-02-05bRagexeRE
 #if PACKETVER >= 20140205
-	packet(0x09DA,-1);
+       packet(0x09DA,-1);
+#endif
+
+#if PACKETVER >= 20140430
+       parseable_packet(HEADER_CZ_DYNAMICNPC_CREATE_REQUEST, sizeof(struct PACKET_CZ_DYNAMICNPC_CREATE_REQUEST), clif_goldpc_npc_request, 2);
 #endif
 
 // 2014-10-08Ragexe
 #if PACKETVER >= 20141008
-	parseable_packet(0x9FB, -1, clif_parse_pet_evolution, 2, 4); // CZ_PET_EVOLUTION
+       parseable_packet(0x9FB, -1, clif_parse_pet_evolution, 2, 4); // CZ_PET_EVOLUTION
 	packet(0x09FC, 6); // ZC_PET_EVOLUTION_RESULT
 #endif
 
@@ -2358,6 +2356,12 @@
 
 // 2018-01-03aRagexeRE or 2018-01-03bRagexeRE
 #if PACKETVER >= 20180103
+	parseable_packet( HEADER_CZ_PARTY_AGENCY_JOIN, sizeof( PACKET_CZ_PARTY_AGENCY_JOIN ), clif_parse_party_agency_join, 0 );
+	parseable_packet( HEADER_CZ_PARTY_AGENCY_ANSWER, sizeof( PACKET_CZ_PARTY_AGENCY_ANSWER ), clif_parse_party_agency_answer, 0 );
+#endif
+
+// 2018-01-03aRagexeRE or 2018-01-03bRagexeRE
+#if PACKETVER >= 20180103
 	parseable_packet(0x0ae8,2,clif_parse_changedress,0);
 #endif
 
@@ -2431,7 +2435,8 @@
 #endif
 
 #if PACKETVER >= 20190724
-	parseable_packet( 0x0b4c, 2, clif_parse_dull, 0 );
+	parseable_packet( HEADER_CZ_SE_CASHSHOP_LIMITED_REQ, sizeof( PACKET_CZ_SE_CASHSHOP_LIMITED_REQ ), clif_parse_CashShopLimited, 0 );
+	packet (HEADER_ZC_SE_CASHSHOP_LIMITED_REQ, sizeof(PACKET_ZC_SE_CASHSHOP_LIMITED_REQ));
 #endif
 
 #if PACKETVER_MAIN_NUM >= 20191120 || PACKETVER_RE_NUM >= 20191106 || PACKETVER_ZERO_NUM >= 20191127

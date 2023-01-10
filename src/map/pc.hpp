@@ -14,7 +14,7 @@
 #include "../common/strlib.hpp"// StringBuf
 #include "../common/timer.hpp"
 
-#include "battleground.hpp"
+
 #include "buyingstore.hpp" // struct s_buyingstore
 #include "clif.hpp" //e_wip_block
 #include "itemdb.hpp" // MAX_ITEMGROUP
@@ -49,6 +49,7 @@ enum sc_type : int16;
 #define LANGTYPE_VAR "#langtype"
 #define CASHPOINT_VAR "#CASHPOINTS"
 #define KAFRAPOINT_VAR "#KAFRAPOINTS"
+#define GOLDPC_POINTS_VAR "#GOLDPCPOINTS"
 #define BANK_VAULT_VAR "#BANKVAULT"
 #define ROULETTE_BRONZE_VAR "RouletteBronze"
 #define ROULETTE_SILVER_VAR "RouletteSilver"
@@ -395,6 +396,26 @@ struct map_session_data {
 		t_itemid laphine_synthesis;
 		t_itemid laphine_upgrade;
 		bool roulette_open;
+		// BG eAmod
+		unsigned bg_afk : 1;
+		unsigned int bg_listen : 1;
+		unsigned int only_walk : 1;
+		unsigned int view_mob_info : 1;
+		unsigned int battleinfo : 1;
+		bool check_equip_skill;
+		// Mavis //
+		unsigned int restock: 1;
+		unsigned int security : 1; // @security [Cydh]
+		unsigned int autostore : 1; // @autostore [Cydh]
+		unsigned int hold: 1; // Oboro
+		unsigned int old_hold; // Oboro - some users like it...
+		unsigned short packet_filter : 1; // Oboro
+		unsigned short nomagias : 1; // Oboro
+		unsigned short nohats : 1; // Oboro
+		unsigned short script_skill : 1; // Oboro skilleffect script.cpp fix
+		unsigned int spb : 1; // @spb / @partybuff
+		unsigned int dropping : 1; // [ROArcane]
+		unsigned int showRecovery : 1; // @showrecovery
 	} state;
 	struct {
 		unsigned char no_weapon_damage, no_magic_damage, no_misc_damage;
@@ -419,6 +440,8 @@ struct map_session_data {
 
 	int langtype;
 	struct mmo_charstatus status;
+
+	std::vector<std::pair<int, int>> sales;
 
 	// Item Storages
 	struct s_storage storage, premiumStorage;
@@ -446,6 +469,8 @@ struct map_session_data {
 	time_t idletime;
 	time_t idletime_hom;
 	time_t idletime_mer;
+	uint64 keyboard_action_tick;
+	uint64 mouse_action_tick;
 
 	struct s_progressbar {
 		int npc_id;
@@ -476,6 +501,7 @@ struct map_session_data {
 	t_tick canlog_tick;
 	t_tick canuseitem_tick;	// [Skotlex]
 	t_tick canusecashfood_tick;
+	t_tick refreshdelay_tick;
 	t_tick canequip_tick;	// [Inkfish]
 	t_tick cantalk_tick;
 	t_tick canskill_tick; // used to prevent abuse from no-delay ACT files
@@ -706,12 +732,12 @@ struct map_session_data {
 	size_t duel_group; // duel vars [LuzZza]
 	size_t duel_invite;
 
-	int killerrid, killedrid, killedgid;
+       int killerrid, killedrid, killedgid, itemusedid;
 
-	int cashPoints, kafraPoints;
-	int rental_timer;
+       int cashPoints, kafraPoints, goldPCPoints;
+       int rental_timer;
 
-	// Auction System [Zephyrus]
+       // Auction System [Zephyrus]
 	struct s_auction{
 		int index, amount;
 	} auction;
@@ -758,10 +784,18 @@ struct map_session_data {
 	const char* debug_file;
 	int debug_line;
 	const char* debug_func;
-
-	// Battlegrounds queue system [MasterOfMuppets]
-	int bg_id, bg_queue_id;
-	int tid_queue_active; ///< Timer ID associated with players joining an active BG
+	
+	//======================
+	//BG eAmod
+	//======================
+ 	unsigned int bg_id;
+	unsigned short bg_team;
+	struct battleground_data *bmaster_flag;
+	unsigned short bg_kills; // Battleground Kill Count
+	// Battleground and Queue System
+	short bg_queue_type; // 0 self | 1 party
+	struct queue_data *qd;
+	//======================
 
 #ifdef SECURE_NPCTIMEOUT
 	/**
@@ -857,6 +891,8 @@ struct map_session_data {
 
 	short setlook_head_top, setlook_head_mid, setlook_head_bottom, setlook_robe; ///< Stores 'setlook' script command values.
 
+	int ce_gid;
+
 #if PACKETVER_MAIN_NUM >= 20150507 || PACKETVER_RE_NUM >= 20150429 || defined(PACKETVER_ZERO)
 	std::vector<int16> hatEffects;
 #endif
@@ -867,6 +903,10 @@ struct map_session_data {
 		uint16 level;
 		int target;
 	} skill_keep_using;
+
+	///Extended Vending system [Lilith]
+	unsigned short vend_loot;
+	int vend_lvl;
 };
 
 extern struct eri *pc_sc_display_ers; /// Player's SC display table
@@ -1265,7 +1305,6 @@ void pc_setinventorydata(struct map_session_data *sd);
 
 int pc_get_skillcooldown(struct map_session_data *sd, uint16 skill_id, uint16 skill_lv);
 uint8 pc_checkskill(struct map_session_data *sd,uint16 skill_id);
-e_skill_flag pc_checkskill_flag(map_session_data &sd, uint16 skill_id);
 uint8 pc_checkskill_summoner(map_session_data *sd, e_summoner_power_type type);
 uint8 pc_checkskill_imperial_guard(struct map_session_data *sd, short flag);
 short pc_checkequip(struct map_session_data *sd,int pos,bool checkall=false);
@@ -1318,6 +1357,7 @@ void pc_cart_delitem(struct map_session_data *sd,int n,int amount,int type,e_log
 void pc_putitemtocart(struct map_session_data *sd,int idx,int amount);
 void pc_getitemfromcart(struct map_session_data *sd,int idx,int amount);
 int pc_cartitem_amount(struct map_session_data *sd,int idx,int amount);
+int pc_getitem_map(struct map_session_data *sd,struct item it,int amt,int count,e_log_pick_type log_type); // [Xantara]
 
 bool pc_takeitem(struct map_session_data *sd,struct flooritem_data *fitem);
 bool pc_dropitem(struct map_session_data *sd,int n,int amount);
@@ -1403,7 +1443,7 @@ int pc_skillheal_bonus(struct map_session_data *sd, uint16 skill_id);
 int pc_skillheal2_bonus(struct map_session_data *sd, uint16 skill_id);
 
 void pc_damage(struct map_session_data *sd,struct block_list *src,unsigned int hp, unsigned int sp, unsigned int ap);
-int pc_dead(struct map_session_data *sd,struct block_list *src);
+int pc_dead(struct map_session_data *sd,struct block_list *src, uint16 skill_id);
 void pc_revive(struct map_session_data *sd,unsigned int hp, unsigned int sp, unsigned int ap = 0);
 bool pc_revive_item(struct map_session_data *sd);
 void pc_heal(struct map_session_data *sd,unsigned int hp,unsigned int sp, unsigned int ap, int type);
@@ -1511,9 +1551,6 @@ struct sg_data {
 };
 extern const struct sg_data sg_info[MAX_PC_FEELHATE];
 
-void pc_set_bg_queue_timer(map_session_data *sd);
-void pc_delete_bg_queue_timer(map_session_data *sd);
-
 void pc_setinvincibletimer(struct map_session_data* sd, int val);
 void pc_delinvincibletimer(struct map_session_data* sd);
 
@@ -1526,13 +1563,15 @@ void pc_delservantball( struct map_session_data& sd, int count = 1 );
 void pc_addabyssball( struct map_session_data& sd, int count = 1 );
 void pc_delabyssball( struct map_session_data& sd, int count = 1 );
 
-bool pc_addfame(map_session_data &sd, int count);
+void pc_addfame(struct map_session_data *sd, int count, short flag);
 unsigned char pc_famerank(uint32 char_id, int job);
 bool pc_set_hate_mob(struct map_session_data *sd, int pos, struct block_list *bl);
 
 extern struct fame_list smith_fame_list[MAX_FAME_LIST];
 extern struct fame_list chemist_fame_list[MAX_FAME_LIST];
 extern struct fame_list taekwon_fame_list[MAX_FAME_LIST];
+extern struct fame_list bg_fame_list[MAX_FAME_LIST];
+extern struct fame_list woe_fame_list[MAX_FAME_LIST];
 
 void pc_readdb(void);
 void do_init_pc(void);
@@ -1543,6 +1582,7 @@ extern int day_timer_tid;
 extern int night_timer_tid;
 TIMER_FUNC(map_day_timer); // by [yor]
 TIMER_FUNC(map_night_timer); // by [yor]
+int pc_update_last_action(struct map_session_data *sd, int type, enum idletime_option idle_option);
 
 // Rental System
 void pc_inventory_rentals(struct map_session_data *sd);
@@ -1553,7 +1593,7 @@ int pc_read_motd(void); // [Valaris]
 int pc_disguise(struct map_session_data *sd, int class_);
 bool pc_isautolooting(struct map_session_data *sd, t_itemid nameid);
 
-void pc_overheat(map_session_data &sd, int16 heat);
+void pc_overheat(struct map_session_data *sd, int16 heat);
 
 void pc_itemcd_do(struct map_session_data *sd, bool load);
 uint8 pc_itemcd_add(struct map_session_data *sd, struct item_data *id, t_tick tick, unsigned short n);
@@ -1563,6 +1603,34 @@ int pc_load_combo(struct map_session_data *sd);
 
 void pc_addspiritcharm(struct map_session_data *sd, int interval, int max, int type);
 void pc_delspiritcharm(struct map_session_data *sd, int count, int type);
+
+///Enum of @security system [Cydh]
+enum e_security_check {
+	SECU_DROP				= 0x00001,
+	SECU_VENDING			= 0x00002,
+	SECU_VENDING_OPEN		= 0x00004,
+	SECU_BUYINGSTORE		= 0x00008,
+	SECU_BUYINGSTORE_OPEN	= 0x00010,
+	SECU_TRADE				= 0x00020,
+	SECU_GUILD_STORAGE		= 0x00040,
+	SECU_BREAKGUILD			= 0x00080,
+	SECU_RESET_ITEM			= 0x00100,
+	SECU_NPCTRADE			= 0x00200,
+	SECU_REMOVE_OPT			= 0x00400,
+	SECU_COMPOUND			= 0x00800,
+	SECU_DELHOMUN			= 0x01000,
+	SECU_MAIL				= 0x02000,
+	SECU_AUCTION			= 0x04000,
+	SECU_RESET_SKILL_STAT	= 0x08000,
+	SECU_FEEDING			= 0x10000,
+	SECU_OTHER				= 0x20000,
+	SECU_ALL				= 0x3FFFF,
+};
+
+bool pc_check_security_(struct map_session_data *sd, enum e_security_check flag, bool notice);
+#define pc_check_security(sd,type) pc_check_security_((sd),(type),true)
+#define pc_check_security_retv(sd,type)   { if (pc_check_security_((sd),(type),true)) return; }
+#define pc_check_security_retr(sd,type,r) { if (pc_check_security_((sd),(type),true)) return (r); }
 
 void pc_baselevelchanged(struct map_session_data *sd);
 
@@ -1600,6 +1668,16 @@ void pc_show_questinfo(struct map_session_data *sd);
 void pc_show_questinfo_reinit(struct map_session_data *sd);
 
 bool pc_job_can_entermap(enum e_job jobid, int m, int group_lv);
+
+// WoE Ranking Stats
+void pc_ranking_reset(int type, bool char_server);
+void pc_calc_playtime(struct map_session_data* sd);
+
+void pc_record_damage(struct block_list *src, struct block_list *target, int damage);
+void pc_record_maxdamage(struct block_list *src, struct block_list *dst, int damage);
+void pc_record_mobkills(struct map_session_data *sd, struct mob_data *md);
+void pc_battle_stats(struct map_session_data *sd, struct map_session_data *tsd, int flag);
+void pc_item_remove4all(int nameid, bool char_server);
 
 #if defined(RENEWAL_DROP) || defined(RENEWAL_EXP)
 uint16 pc_level_penalty_mod( struct map_session_data* sd, e_penalty_type type, std::shared_ptr<s_mob_db> mob, mob_data* md = nullptr );

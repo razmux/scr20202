@@ -185,6 +185,7 @@ void hom_reset_stats(struct homun_data *hd);
 int hom_shuffle(struct homun_data *hd); // [Zephyrus]
 void hom_save(struct homun_data *hd);
 bool hom_call(struct map_session_data *sd);
+int hom_delete(struct homun_data *hd, int emote);
 bool hom_create_request(struct map_session_data *sd, int class_);
 int hom_search(int key,int type);
 void hom_menu(struct map_session_data *sd,int type);

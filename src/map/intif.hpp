@@ -50,6 +50,8 @@ int intif_party_message(int party_id, uint32 account_id, const char *mes,int len
 int intif_party_leaderchange(int party_id,uint32 account_id,uint32 char_id);
 int intif_party_sharelvlupdate(unsigned int share_lvl);
 
+int intif_guild_save_score(int guild_id, int castle, struct guild_rank_data *grd);
+
 int intif_guild_create(const char *name, const struct guild_member *master);
 int intif_guild_request_info(int guild_id);
 int intif_guild_addmember(int guild_id, struct guild_member *m);

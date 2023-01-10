@@ -862,9 +862,13 @@ void hom_menu(struct map_session_data *sd, int type)
 		case 0:
 			break;
 		case 1:
+			if (pc_check_security(sd, SECU_FEEDING))
+				break;
 			hom_food(sd, sd->hd);
 			break;
 		case 2:
+			if (pc_check_security(sd,SECU_DELHOMUN))
+				break;
 			hom_delete(sd->hd, -1);
 			break;
 		default:

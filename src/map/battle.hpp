@@ -12,6 +12,7 @@
 
 #include "map.hpp" //ELE_MAX
 #include "skill.hpp"
+#include "mapreg.hpp"
 
 //fwd declaration
 struct map_session_data;
@@ -72,7 +73,7 @@ enum e_battle_check_target : uint32 {
 /// Damage structure
 struct Damage {
 #ifdef RENEWAL
-	int64 statusAtk, statusAtk2, weaponAtk, weaponAtk2, equipAtk, equipAtk2, masteryAtk, masteryAtk2, percentAtk, percentAtk2;
+	int64 statusAtk, statusAtk2, weaponAtk, weaponAtk2, equipAtk, equipAtk2, masteryAtk, masteryAtk2;
 #endif
 	int64 damage, /// Right hand damage
 		damage2; /// Left hand damage
@@ -102,7 +103,6 @@ int battle_calc_cardfix(int attack_type, struct block_list *src, struct block_li
 int64 battle_calc_damage(struct block_list *src,struct block_list *bl,struct Damage *d,int64 damage,uint16 skill_id,uint16 skill_lv);
 int64 battle_calc_gvg_damage(struct block_list *src,struct block_list *bl,int64 damage,uint16 skill_id,int flag);
 int64 battle_calc_bg_damage(struct block_list *src,struct block_list *bl,int64 damage,uint16 skill_id,int flag);
-int64 battle_calc_pk_damage(block_list &src, block_list &bl, int64 damage, uint16 skill_id, int flag);
 
 void battle_damage(struct block_list *src, struct block_list *target, int64 damage, t_tick delay, uint16 skill_lv, uint16 skill_id, enum damage_lv dmg_lv, unsigned short attack_type, bool additional_effects, t_tick tick, bool spdamage);
 int battle_delay_damage (t_tick tick, int amotion, struct block_list *src, struct block_list *target, int attack_type, uint16 skill_id, uint16 skill_lv, int64 damage, enum damage_lv dmg_lv, t_tick ddelay, bool additional_effects, bool spdamage);
@@ -481,6 +481,10 @@ struct Battle_Config
 	int quest_exp_rate;
 	int autotrade_mapflag;
 	int at_timeout;
+	int afk_timeout;
+	int afk_mapflag;
+	int afk_viewid;
+	int afk_battleignore;
 	int homunculus_autoloot;
 	int idle_no_autoloot;
 	int max_guild_alliance;
@@ -517,6 +521,8 @@ struct Battle_Config
 	int bg_magic_damage_rate;
 	int bg_misc_damage_rate;
 	int bg_flee_penalty;
+
+	int security_mode; // @security [Cydh]
 
 	// rAthena
 	int max_third_parameter;
@@ -671,8 +677,6 @@ struct Battle_Config
 	int hom_idle_no_share;
 	int idletime_hom_option;
 	int devotion_standup_fix;
-	int feature_bgqueue;
-	int bgqueue_nowarp_mapflag;
 	int homunculus_exp_gain;
 	int rental_item_novalue;
 	int ping_timer_interval;
@@ -710,6 +714,41 @@ struct Battle_Config
 	int feature_barter;
 	int feature_barter_extended;
 	int break_mob_equip;
+
+    int feature_goldpc_timer;
+    int feature_goldpc_timer_rates;
+
+//BATTLEGROUND EXTENDED
+	int bg_idle_announce;
+	int bg_idle_autokick;
+	int bg_reportafk_leaderonly;
+	int bg_queue2team_balanced;
+	int bg_reward_rates;
+	int bg_queue_onlytowns;
+	int bg_order_behavior;
+	int bg_eAmod_mode;
+	int bg_reserved_char_id;
+	int woe_reserved_char_id;
+	int universal_reserved_char_id;
+	int bg_can_trade;
+	int bg_double_login;
+	int bg_extended_check_equip;
+	int bg_badges;
+	int bg_battle_badges;
+	int bg_kafrapoints;
+	int bg_event_extra_badges;
+	int bg_win_badges;
+	int bg_ranking_bonus;
+	int bg_ranked_mode;
+	int bg_ranked_max_games;
+	int action_keyboard_limit;
+	int action_mouse_limit;
+	int action_dual_limit;
+	int min_guild;
+	int max_guild;
+	int oboro_max_party;
+	int enable_oboro_woe_system;
+	int costume_reserved_char_id;
 
 #include "../custom/battle_config_struct.inc"
 };

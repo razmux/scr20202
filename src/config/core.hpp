@@ -47,7 +47,7 @@
 #define HP_SP_TABLES
 
 /// Uncomment to enable VIP system.
-//#define VIP_ENABLE
+#define VIP_ENABLE
 
 /// Enable VIP script changes? (requires VIP_ENABLE)
 /// The primary effects of this are restrictions on non-VIP players, such as requiring
@@ -56,9 +56,9 @@
 #define VIP_SCRIPT 0
 
 #ifdef VIP_ENABLE
-	#define MIN_STORAGE 300 // Default number of storage slots.
-	#define MIN_CHARS 3 // Default number of characters per account.
-	#define MAX_CHAR_VIP 6 // This must be less than MAX_CHARS
+	#define MIN_STORAGE 600 // Default number of storage slots.
+	#define MIN_CHARS 15 // Default number of characters per account.
+	#define MAX_CHAR_VIP 0 // This must be less than MAX_CHARS
 	#define MAX_CHAR_BILLING 0 // This must be less than MAX_CHARS
 #endif
 
@@ -79,10 +79,13 @@
 // Compilation might work on these compilers, but they might not fully follow newer C++ rules and
 // cause unexpected behavior.
 // Do NOT create any issues or ask for help with these compilers.
-//#define DEPRECATED_COMPILER_SUPPORT
+#define DEPRECATED_COMPILER_SUPPORT
 
 /// Uncomment for use with Nemo patch ExtendCashShopPreview
-//#define ENABLE_CASHSHOP_PREVIEW_PATCH
+#define ENABLE_CASHSHOP_PREVIEW_PATCH
+
+/// Uncomment for use with Nemo patch ExtendOldCashShopPreview
+#define ENABLE_OLD_CASHSHOP_PREVIEW_PATCH
 
 /**
  * No settings past this point

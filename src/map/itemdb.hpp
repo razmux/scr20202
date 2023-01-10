@@ -22,12 +22,13 @@ const t_itemid UNKNOWN_ITEM_ID = 512;
 /// The maximum number of item delays
 #define MAX_ITEMDELAYS	10
 ///Designed for search functions, species max number of matches to display.
-#ifndef MAX_SEARCH
-#define MAX_SEARCH	10
-#endif
+#define MAX_SEARCH	5
 
 #define MAX_ROULETTE_LEVEL 7 /** client-defined value **/
 #define MAX_ROULETTE_COLUMNS 9 /** client-defined value **/
+
+///Maximum amount of items to drop in an area
+#define MAX_ITEM_DROP_AREA 200
 
 const t_itemid CARD0_FORGE = 0x00FF;
 const t_itemid CARD0_CREATE = 0x00FE;
@@ -35,6 +36,7 @@ const t_itemid CARD0_PET = 0x0100;
 
 ///Marks if the card0 given is "special" (non-item id used to mark pets/created items. [Skotlex]
 #define itemdb_isspecial(i) (i == CARD0_FORGE || i == CARD0_CREATE || i == CARD0_PET)
+#define itemdb_isenchant(i) ((i >= 4700 && i <= 4999) || (i >= 40540 && i <= 40599))
 
 ///Enum of item id (for hardcoded purpose)
 enum item_itemid : t_itemid
@@ -58,6 +60,7 @@ enum item_itemid : t_itemid
 	ITEMID_POISON_BOTTLE				= 678,
 	ITEMID_EMPTY_BOTTLE					= 713,
 	ITEMID_EMPERIUM						= 714,
+	ITEMID_YELLOW_GEMSTONE					= 715,
 	ITEMID_RED_GEMSTONE					= 716,
 	ITEMID_BLUE_GEMSTONE				= 717,
 	ITEMID_ORIDECON_STONE				= 756,
@@ -308,7 +311,6 @@ enum e_random_item_group {
 	IG_A_GRADE_COIN_BAG,
 	IG_ADVANCED_WEAPONS_BOX,
 	IG_SPLENDID_BOX,
-	IG_SPLENDID_BOX2,
 	IG_CARDALBUM_ARMOR,
 	IG_CARDALBUM_HELM,
 	IG_CARDALBUM_ACC,
@@ -958,42 +960,6 @@ enum e_random_item_group {
 	IG_GOLDEN_LORD_LAUNCHER_CUBE,
 	IG_THE_BLACK_CUBE,
 	IG_DEMON_SLAYER_SHOT_CUBE,
-	IG_RUNE_CRAFT_MATERIALS,
-	IG_ELEMENTAL_CONVERTER,
-	IG_POISONS,
-	IG_BLACKSMITH,
-	IG_POTION_CRAFT_MATERIALS,
-	IG_KUNAI_BOX,
-	IG_BULLET_CASE,
-	IG_SOUL_LINKER,
-	IG_ELEMENTAL_STONES,
-	IG_SHADOW_CUBE_ARMOR,
-	IG_SHADOW_CUBE_SHIELD,
-	IG_SHADOW_CUBE_SHOES,
-	IG_SHADOW_CUBE_WEAPON,
-	IG_AUTOMATIC_MODULE_MIX,
-	IG_EPIC_MODULE_MIX,
-	IG_AUTO_M_I_BOX_A,
-	IG_AUTO_M_I_BOX_B,
-	IG_ILLUSION_MODULE_MIX,
-	IG_ENCHANT_STONE_BOX22,
-	IG_ENCHANT_STONE_BOX23,
-	IG_ENCHANT_STONE_BOX24,
-	IG_ENCHANT_STONE_BOX25,
-	IG_ENCHANT_STONE_BOX27,
-	IG_ANCIENT_HERO_BOX_1,
-	IG_3LV_9REFINE_WEAPON_7GU,
-	IG_3LV_10REFINE_WEAPON_8GU,
-	IG_3LV_11REFINE_WEAPON_9GU,
-	IG_3LV_12REFINE_WEAPON_10G,
-	IG_4LV_9REFINE_WEAPON_8GU,
-	IG_4LV_10REFINE_WEAPON_9GU,
-	IG_4LV_11REFINE_WEAPON_10G,
-	IG_BS_ITEM_M_S_52,
-	IG_Bs_Item_M_S_53,
-	IG_Bs_Item_M_S_54,
-	IG_Bs_Item_M_S_55,
-	IG_Bs_Item_M_S_56,
 
 	IG_MAX,
 };
@@ -1385,9 +1351,30 @@ public:
 
 extern LaphineUpgradeDatabase laphine_upgrade_db;
 
-uint16 itemdb_searchname_array(std::map<t_itemid, std::shared_ptr<item_data>> &data, uint16 size, const char *str);
+/**
+* Extended Vending system [Lilith]
+**/
+struct s_item_vend_db {
+	t_itemid nameid;
+};
+
+class ItemVendingDatabase : public TypesafeCachedYamlDatabase<t_itemid, s_item_vend_db> {
+public:
+	ItemVendingDatabase() : TypesafeCachedYamlDatabase("ITEM_VENDING_DB", 1) {
+
+	}
+
+	const std::string getDefaultLocation();
+	uint64 parseBodyNode(const ryml::NodeRef& node);
+};
+
+extern ItemVendingDatabase itemdb_vending;
+
+//extern struct s_item_vend item_vend[MAX_INVENTORY];
+
+int itemdb_searchname_array(struct item_data** data, int size, const char *str);
 struct item_data* itemdb_search(t_itemid nameid);
-std::shared_ptr<item_data> itemdb_exists(t_itemid nameid);
+struct item_data* itemdb_exists(t_itemid nameid);
 #define itemdb_name(n) itemdb_search(n)->name.c_str()
 #define itemdb_ename(n) itemdb_search(n)->ename.c_str()
 #define itemdb_type(n) itemdb_search(n)->type
@@ -1448,5 +1435,9 @@ void itemdb_reload(void);
 
 void do_final_itemdb(void);
 void do_init_itemdb(void);
+
+/// Extended Vending
+#define ITEMID_ZENY battle_config.item_zeny
+#define ITEMID_CASH battle_config.item_cash
 
 #endif /* ITEMDB_HPP */

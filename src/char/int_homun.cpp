@@ -233,13 +233,13 @@ bool mapif_homunculus_load(int homun_id, struct s_homunculus* hd)
 
 bool mapif_homunculus_delete(int homun_id)
 {
-	if( SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `%s` WHERE `homun_id` = '%u'", schema_config.homunculus_db, homun_id)
-	||	SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `%s` WHERE `homun_id` = '%u'", schema_config.skill_homunculus_db, homun_id)
-	) {
-		Sql_ShowDebug(sql_handle);
-		return false;
-	}
-	ShowInfo("Homunculus '%d' has been deleted.\n", homun_id);
+//	if( SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `%s` WHERE `homun_id` = '%u'", schema_config.homunculus_db, homun_id)
+//	||	SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `%s` WHERE `homun_id` = '%u'", schema_config.skill_homunculus_db, homun_id)
+//	) {
+//		Sql_ShowDebug(sql_handle);
+//		return false;
+//	}
+//	ShowInfo("Homunculus '%d' has been deleted.\n", homun_id);
 	return true;
 }
 

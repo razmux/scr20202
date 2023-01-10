@@ -1470,6 +1470,11 @@ enum e_skill {
 	NPC_IMMUNE_PROPERTY,
 	NPC_MOVE_COORDINATE,
 
+//
+	CS_EQUIPMENT = 780,
+	CS_BG,
+	CS_WOE,
+
 	KN_CHARGEATK = 1001,
 	CR_SHRINK,
 	AS_SONICACCEL,
@@ -2738,6 +2743,8 @@ void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_li
 enum sc_type skill_get_sc(int16 skill_id);
 void skill_reveal_trap_inarea(struct block_list *src, int range, int x, int y);
 int skill_get_time3(struct map_data *mapdata, uint16 skill_id, uint16 skill_lv);
+
+int skill_vending(struct map_session_data *sd, t_itemid nameid); //Extended Vending [Lilith]
 
 /// Variable name of copied skill by Plagiarism
 #define SKILL_VAR_PLAGIARISM "CLONE_SKILL"

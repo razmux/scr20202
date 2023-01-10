@@ -39,7 +39,7 @@ static const int packet_len_table[] = {
 	 0, 0, 0, 0,  0, 0, 0, 0, -1,11, 0, 0,  0, 0,  0, 0, //0x3810
 	39,-1,15,15, 15+NAME_LENGTH,19, 7,-1,  0, 0, 0, 0,  0, 0,  0, 0, //0x3820
 	10,-1,15, 0, 79,19, 7,-1,  0,-1,-1,-1, 14,67,186,-1, //0x3830
-	-1,10, 0,18,  0, 0, 0, 0, -1,75,-1,11, 11,-1, 38, 0, //0x3840
+	-1,10, 0,18,  8, 0, 0, 0, -1,75,-1,11, 11,-1, 38, 0, //0x3840 3844 - Guild Rank
 	-1,-1, 7, 7,  7,11, 8,-1,  0, 0, 0, 0,  0, 0,  0, 0, //0x3850  Auctions [Zephyrus] itembound[Akinari]
 	-1, 7,-1, 7, 14, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3860  Quests [Kevin] [Inkfish] / Achievements [Aleos]
 	-1, 3, 3, 0,  0, 0, 0, 0,  0, 0, 0, 0, -1, 3,  3, 0, //0x3870  Mercenaries [Zephyrus] / Elemental [pakpil]
@@ -1109,6 +1109,21 @@ int intif_guild_notice(int guild_id,const char *mes1,const char *mes2)
 	return 1;
 }
 
+int intif_guild_save_score(int guild_id, int castle, struct guild_rank_data *grd)
+{
+	if( CheckForCharServer() )
+		return 0;
+
+	WFIFOHEAD(inter_fd,14);
+	WFIFOW(inter_fd,0) = 0x3043;
+	WFIFOW(inter_fd,2) = sizeof(struct guild_rank_data) + 10;
+	WFIFOL(inter_fd,4) = guild_id;
+	WFIFOW(inter_fd,8) = castle;
+	memcpy(WFIFOP(inter_fd,10), grd, sizeof(struct guild_rank_data));
+	WFIFOSET(inter_fd,WFIFOW(inter_fd,2));
+	return 1;
+}
+
 /**
  * Request to change guild emblem
  * @param guild_id
@@ -1837,6 +1852,12 @@ int intif_parse_GuildEmblem(int fd)
 {
 	guild_emblem_changed(RFIFOW(fd,2)-12,RFIFOL(fd,4),RFIFOL(fd,8), RFIFOCP(fd,12));
 	return 1;
+}
+
+int intif_parse_Guild_score_saved(int fd)
+{
+	guild_score_saved(RFIFOL(fd,2),RFIFOW(fd,6));
+	return 0;
 }
 
 int intif_parse_GuildEmblemVersionChanged(int fd)
@@ -3817,6 +3838,7 @@ int intif_parse(int fd)
 	case 0x3840:	intif_parse_GuildCastleDataLoad(fd); break;
 	case 0x3841:	intif_parse_GuildEmblemVersionChanged(fd); break;
 	case 0x3843:	intif_parse_GuildMasterChanged(fd); break;
+	case 0x3844:	intif_parse_Guild_score_saved(fd); break;
 
 	// Mail System
 	case 0x3848:	intif_parse_Mail_inboxreceived(fd); break;

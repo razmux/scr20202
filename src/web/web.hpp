@@ -13,9 +13,7 @@
 #include "../config/core.hpp"
 
 
-#ifndef SQL_BUFFER_SIZE
-	#define SQL_BUFFER_SIZE 65535
-#endif
+#define SQL_BUFFER_SIZE 65535
 
 enum E_WEBSERVER_ST {
 	WEBSERVER_ST_RUNNING = CORE_ST_LAST,
@@ -39,11 +37,6 @@ struct Inter_Config {
 	bool emblem_woe_change;							// allow emblem change during woe
 };
 
-enum e_http_status{
-	HTTP_BAD_REQUEST = 400,
-	HTTP_NOT_FOUND = 404,
-};
-
 extern struct Web_Config web_config;
 extern struct Inter_Config inter_config;
 
@@ -54,6 +47,7 @@ extern char char_configs_table[32];
 extern char guild_db_table[32];
 extern char char_db_table[32];
 extern char merchant_configs_table[32];
+extern char party_agency_table[32];
 
 #define msg_config_read(cfgName) web_msg_config_read(cfgName)
 #define msg_txt(msg_number) web_msg_txt(msg_number)

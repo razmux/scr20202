@@ -14,6 +14,7 @@
 #include "map.hpp" // struct block_list
 #include "status.hpp" // struct status_change
 #include "unit.hpp" // struct unit_data
+#include "arthurdev.hpp"
 
 struct block_list;
 struct npc_data;
@@ -165,7 +166,7 @@ struct npc_data {
 		struct {
 			struct script_code *script;
 			short xs,ys; // OnTouch area radius
-			int guild_id;
+			int guild_id, bg_id;
 			t_tick timer;
 			int timerid,timeramount,rid;
 			t_tick timertick;
@@ -1450,6 +1451,8 @@ enum npce_event : uint8 {
 	NPCE_DIE,
 	NPCE_KILLPC,
 	NPCE_KILLNPC,
+	NPCE_ITEMUSED,
+	NPCE_MVPSPAWN,
 	NPCE_MAX
 };
 

@@ -59,11 +59,13 @@ enum MOBID {
 	MOBID_BLACK_MUSHROOM	= 1084,
 	MOBID_MARINE_SPHERE		= 1142,
 	MOBID_EMPERIUM			= 1288,
+	MOBID_EVENT_EMPERIUM		= 20088,
 	MOBID_G_PARASITE		= 1555,
 	MOBID_G_FLORA			= 1575,
 	MOBID_G_HYDRA			= 1579,
 	MOBID_G_MANDRAGORA		= 1589,
 	MOBID_G_GEOGRAPHER		= 1590,
+	MOBID_BG_BARRICADE		= 1906, //  custom mobs
 	MOBID_GUARDIAN_STONE1	= 1907,
 	MOBID_GUARDIAN_STONE2,
 	MOBID_SILVERSNIPER		= 2042,
@@ -72,6 +74,11 @@ enum MOBID {
 	MOBID_MAGICDECOY_EARTH,
 	MOBID_MAGICDECOY_WIND,
 	MOBID_ZANZOU			= 2308,
+	MOBID_PRT_EMPERIUM1		= 2103, //  custom mobs
+	MOBID_PRT_EMPERIUM2,			//  custom mobs
+	MOBID_BG_STONE1,				//  custom mobs
+	MOBID_BG_STONE2,				//  custom mobs
+	MOBID_BG_EMPERIUM,				//  custom mobs
 	MOBID_S_HORNET			= 2158,
 	MOBID_S_GIANT_HORNET,
 	MOBID_S_LUCIOLA_VESPA,
@@ -286,32 +293,6 @@ public:
 
 extern MobDatabase mob_db;
 
-struct s_map_mob_drop{
-	uint16 mob_id;
-	std::shared_ptr<s_mob_drop> drop;
-};
-
-struct s_map_drops{
-	uint16 mapid;
-	std::unordered_map<uint16, std::shared_ptr<s_mob_drop>> globals;
-	std::unordered_map<uint16, std::unordered_map<uint16, std::shared_ptr<s_mob_drop>>> specific;
-};
-
-class MapDropDatabase : public TypesafeYamlDatabase<uint16, s_map_drops>{
-public:
-	MapDropDatabase() : TypesafeYamlDatabase( "MAP_DROP_DB", 1 ){
-
-	}
-
-	const std::string getDefaultLocation() override;
-	uint64 parseBodyNode( const ryml::NodeRef& node ) override;
-
-private:
-	bool parseDrop( const ryml::NodeRef& node, std::unordered_map<uint16, std::shared_ptr<s_mob_drop>>& drops );
-};
-
-extern MapDropDatabase map_drop_db;
-
 struct mob_data {
 	struct block_list bl;
 	struct unit_data  ud;
@@ -355,13 +336,24 @@ struct mob_data {
 	int level;
 	int target_id,attacked_id,norm_attacked_id;
 	int areanpc_id; //Required in OnTouchNPC (to avoid multiple area touchs)
-	int bg_id; // BattleGround System
+	unsigned int bg_id; // BattleGround System
 
 	t_tick next_walktime,last_thinktime,last_linktime,last_pcneartime,dmgtick;
 	short move_fail_count;
 	short lootitem_count;
 	short min_chase;
 	unsigned char walktoxy_fail_count; //Pathfinding succeeds but the actual walking failed (e.g. Icewall lock)
+
+	struct {
+		bool is_event, no_expdrop, no_slaves, announce_killer, announce_hprate, is_war, drop_boost;
+		unsigned hp_show : 3;
+		unsigned int max_hp; // Custom Max HP value
+		unsigned allow_warp : 2;
+		unsigned ai_type : 3;
+		int party_id, guild_id, guild_emblem_id, faction_id;
+		short item_drop, item_amount, exp_boost;
+		
+	} option;
 
 	int deletetimer;
 	int master_id,master_dist;
@@ -456,7 +448,6 @@ enum e_mob_skill_condition {
 	MSC_MASTERATTACKED,
 	MSC_ALCHEMIST,
 	MSC_SPAWN,
-	MSC_MOBNEARBYGT,
 };
 
 // The data structures for storing delayed item drops
@@ -474,7 +465,7 @@ struct item_drop_list {
 
 uint16 mobdb_searchname(const char * const str);
 std::shared_ptr<s_mob_db> mobdb_search_aegisname( const char* str );
-uint16 mobdb_searchname_array(const char *str, uint16 * out, uint16 size);
+int mobdb_searchname_array(const char *str, uint16 * out, int size);
 int mobdb_checkid(const int id);
 struct view_data* mob_get_viewdata(int mob_id);
 void mob_set_dynamic_viewdata( struct mob_data* md );
@@ -488,10 +479,13 @@ int mob_once_spawn(struct map_session_data* sd, int16 m, int16 x, int16 y,
 int mob_once_spawn_area(struct map_session_data* sd, int16 m,
 	int16 x0, int16 y0, int16 x1, int16 y1, const char* mobname, int mob_id, int amount, const char* event, unsigned int size, enum mob_ai ai);
 
+int mob_once_spawn_especial(struct map_session_data* sd, const char* mapname, short x, short y, const char* mobname, int class_, int amount, const char* event, int hp_mod, short size, short ai_type, bool no_slaves, short allow_warp, short hp_show, bool announce_hprate, bool announce_killer, bool no_expdrop, int TeamID, short item_drop, short item_amount, bool is_war, short exp_boost, bool drop_boost);
+
+
 bool mob_ksprotected (struct block_list *src, struct block_list *target);
 
 int mob_spawn_guardian(const char* mapname, int16 x, int16 y, const char* mobname, int mob_id, const char* event, int guardian, bool has_index);	// Spawning Guardians [Valaris]
-int mob_spawn_bg(const char* mapname, int16 x, int16 y, const char* mobname, int mob_id, const char* event, unsigned int bg_id);
+int mob_spawn_bg(const char* mapname, int16 x, int16 y, const char* mobname, int mob_id, const char* event, unsigned int bg_id, unsigned int size);
 int mob_guardian_guildchange(struct mob_data *md); //Change Guardian's ownership. [Skotlex]
 
 int mob_randomwalk(struct mob_data *md,t_tick tick);

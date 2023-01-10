@@ -248,6 +248,9 @@ bool mail_setattachment(struct map_session_data *sd, struct mail_message *msg)
 	nullpo_retr(false,sd);
 	nullpo_retr(false,msg);
 
+	if (pc_check_security(sd, SECU_MAIL))
+		return false;
+
 	for( i = 0, amount = 0; i < MAIL_MAX_ITEM; i++ ){
 		int index = sd->mail.item[i].index;
 
@@ -366,6 +369,8 @@ int mail_openmail(struct map_session_data *sd)
 
 	if( sd->state.storage_flag || sd->state.vending || sd->state.buyingstore || sd->state.trading )
 		return 0;
+
+	pc_check_security_retr(sd, SECU_MAIL, 0);
 
 	clif_Mail_window(sd->fd, 0);
 

@@ -8,6 +8,7 @@
 
 #include "../common/nullpo.hpp"
 #include "../common/socket.hpp"
+#include "../common/utils.hpp"
 
 #include "atcommand.hpp"
 #include "battle.hpp"
@@ -43,6 +44,11 @@ void trade_traderequest(struct map_session_data *sd, struct map_session_data *ta
 	}
 
 	if (target_sd->npc_id) { // Trade fails if you are using an NPC.
+		clif_tradestart(sd, 2);
+		return;
+	}
+
+	if (pc_check_security(sd,SECU_TRADE) || pc_check_security(target_sd,SECU_TRADE)) {
 		clif_tradestart(sd, 2);
 		return;
 	}
@@ -120,6 +126,12 @@ void trade_tradeack(struct map_session_data *sd, int type)
 		clif_tradestart(sd, 2);
 		sd->trade_partner=0;
 		return; // Already trading or wrong partner.
+	}
+
+	if (pc_check_security(sd,SECU_TRADE) || pc_check_security(tsd,SECU_TRADE)) {
+		clif_tradestart(sd, 2);
+		sd->trade_partner=0;
+		return;
 	}
 
 	if (type == 4) { // Cancel
@@ -393,7 +405,12 @@ void trade_tradeadditem(struct map_session_data *sd, short index, short amount)
 		clif_tradeitemok(sd, index+2, 1);
 		return;
 	}
-
+	if( item->card[0]==CARD0_CREATE && (MakeDWord(item->card[2],item->card[3])== (battle_config.bg_reserved_char_id || battle_config.woe_reserved_char_id )&& !battle_config.bg_can_trade) )
+	{	// "Battleground's Items"
+		clif_displaymessage (sd->fd, msg_txt(sd,260));
+		clif_tradeitemok(sd, index+2, 1);
+		return;
+	}
 	if( ((item->bound == BOUND_ACCOUNT || item->bound > BOUND_GUILD) || (item->bound == BOUND_GUILD && sd->status.guild_id != target_sd->status.guild_id)) && !pc_can_give_bounded_items(sd) ) { // Item Bound
 		clif_displaymessage(sd->fd, msg_txt(sd,293));
 		clif_tradeitemok(sd, index+2, 1);

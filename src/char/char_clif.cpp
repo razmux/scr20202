@@ -500,6 +500,11 @@ int chclif_parse_char_delete2_req(int fd, struct char_session_data* sd) {
 			return 1;
 		}
 
+		if (!inter_can_delete_char(sd->account_id)) {
+			chclif_char_delete2_ack(fd, char_id, 0, 0);
+			return 1;
+		}
+
 		if( SQL_SUCCESS != Sql_Query(sql_handle, "SELECT `delete_date`,`party_id`,`guild_id` FROM `%s` WHERE `char_id`='%d'", schema_config.char_db, char_id) || SQL_SUCCESS != Sql_NextRow(sql_handle) )
 		{
 			Sql_ShowDebug(sql_handle);
@@ -595,6 +600,11 @@ int chclif_parse_char_delete2_accept(int fd, struct char_session_data* sd) {
 		birthdate[7] = RFIFOB(fd,11);
 		birthdate[8] = 0;
 		RFIFOSKIP(fd,12);
+
+		if (!inter_can_delete_char(sd->account_id)) {
+			chclif_char_delete2_accept_ack(fd, char_id, 0);
+			return 1;
+		}
 
 		// Only check for birthdate
 		if (!chclif_delchar_check(sd, birthdate, CHAR_DEL_BIRTHDATE)) {
@@ -1091,6 +1101,11 @@ int chclif_parse_delchar(int fd,struct char_session_data* sd, int cmd){
 
 		if (!chclif_delchar_check(sd, email, charserv_config.char_config.char_del_option)) {
 			chclif_refuse_delchar(fd,0); // 00 = Incorrect Email address
+			return 1;
+		}
+
+		if (!inter_can_delete_char(sd->account_id)) {
+			chclif_refuse_delchar(fd, 0);
 			return 1;
 		}
 

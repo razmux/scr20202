@@ -96,10 +96,28 @@ int chmapif_send(int fd, unsigned char *buf, unsigned int len){
  * @return : 0 success
  */
 int chmapif_send_fame_list(int fd){
-	int i, len = 8;
-	unsigned char buf[32000];
+	int i, len = 12;
+ 	unsigned char buf[32000];
 
 	WBUFW(buf,0) = 0x2b1b;
+
+
+	for( i = 0; i < fame_list_size_woe && woe_fame_list[i].id; i++ )
+	{
+		memcpy(WBUFP(buf,len),&woe_fame_list[i],sizeof(struct fame_list));
+		len += sizeof(struct fame_list);
+	}
+	// add woe's block length
+	WBUFW(buf, 10) = len;
+
+	for( i = 0; i < fame_list_size_bg && bg_fame_list[i].id; i++ )
+	{
+		memcpy(WBUFP(buf,len),&bg_fame_list[i],sizeof(struct fame_list));
+		len += sizeof(struct fame_list);
+	}
+	// add bg's block length
+	WBUFW(buf, 8) = len;
+
 
 	for(i = 0; i < fame_list_size_smith && smith_fame_list[i].id; i++) {
 		memcpy(WBUFP(buf, len), &smith_fame_list[i], sizeof(struct fame_list));
@@ -1107,7 +1125,9 @@ int chmapif_parse_updfamelist(int fd){
 				case RANK_BLACKSMITH:	size = fame_list_size_smith;	list = smith_fame_list;		break;
 				case RANK_ALCHEMIST:	size = fame_list_size_chemist;	list = chemist_fame_list;	break;
 				case RANK_TAEKWON:		size = fame_list_size_taekwon;	list = taekwon_fame_list;	break;
-				default:				size = 0;						list = NULL;				break;
+                case RANK_BG:  		size = fame_list_size_bg;  	list = bg_fame_list;  		break;
+                case RANK_WOE:  	size = fame_list_size_woe;      list = woe_fame_list;      	break;
+                default: 		size = 0;                      	list = NULL;             	break;
             }
 
             ARR_FIND(0, size, player_pos, list[player_pos].id == cid);// position of the player
@@ -1159,6 +1179,19 @@ int chmapif_vipack(int mapfd, uint32 aid, uint32 vip_time, uint32 groupid, uint8
 	chmapif_send(mapfd,buf,15);  // inform the mapserv back
 #endif
 	return 0;
+}
+
+/**
+ * Received a Ranking Reset request
+ * @param fd: wich fd to parse from
+ * @return : 0 not enough data received, 1 success
+ */
+int chmapif_parse_reqranking_reset(int fd) {
+	if (RFIFOREST(fd) < 4)
+		return 0;
+	char_ranking_reset(RFIFOW(fd, 2));
+	RFIFOSKIP(fd, 4);
+	return 1;
 }
 
 int chmapif_parse_reqcharban(int fd){
@@ -1417,6 +1450,10 @@ int chmapif_parse(int fd){
 			case 0x2b10: next=chmapif_parse_updfamelist(fd); break;
 			case 0x2b11: next=chmapif_parse_reqdivorce(fd); break;
 			case 0x2b13: next=chmapif_parse_updmapip(fd,id); break;
+
+			// eAmod Codes
+			case 0x2b30: next = chmapif_parse_reqranking_reset(fd); break;
+
 			case 0x2b15: next=chmapif_parse_req_saveskillcooldown(fd); break;
 			case 0x2b17: next=chmapif_parse_setcharoffline(fd); break;
 			case 0x2b18: next=chmapif_parse_setalloffline(fd,id); break;

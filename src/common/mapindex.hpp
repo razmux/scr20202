@@ -6,10 +6,10 @@
 
 #include "../common/mmo.hpp"
 
-#define MAX_MAPINDEX 2000
+#define MAX_MAPINDEX 4000
 
 //Some definitions for the major city maps.
-#define MAP_PRONTERA "prontera"
+#define MAP_ARLANDRIA "arlandria"
 #define MAP_GEFFEN "geffen"
 #define MAP_MORROC "morocc"
 #define MAP_ALBERTA "alberta"
@@ -50,6 +50,7 @@
 #define MAP_MALAYA "malaya"
 #define MAP_ECLAGE "eclage"
 #define MAP_ECLAGE_IN "ecl_in01"
+#define MAP_PRONTERA "prontera"
 #define MAP_LASAGNA "lasagna"
 
 const char* mapindex_getmapname(const char* string, char* output);

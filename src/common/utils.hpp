@@ -25,6 +25,24 @@ bool exists(const char* filename);
 /// Apply rate for val, divided by per
 #define apply_rate2(val, rate, per) (((rate) == (per)) ? (val) : ((val) > 100000) ? ((val) / (per) * (rate)) : ((val) * (rate) / (per)))
 
+#define add2limit(a, b, max) \
+	do { \
+		if( (max - a) < b ) { \
+			a = max; \
+		} else { \
+			a += b; \
+		} \
+	} while(0)
+
+#define sub2limit(a, b, min) \
+	do { \
+		if( (b + min) > a ) { \
+			a = min; \
+		} else { \
+			a -= b; \
+		} \
+	} while(0)
+
 /// calculates the value of A / B, in percent (rounded down)
 unsigned int get_percentage(const unsigned int A, const unsigned int B);
 uint32 get_percentage_exp(const uint64 a, const uint64 b);
@@ -47,5 +65,7 @@ extern uint16 GetUShort(const unsigned char* buf);
 extern uint32 GetULong(const unsigned char* buf);
 extern int32 GetLong(const unsigned char* buf);
 extern float GetFloat(const unsigned char* buf);
+
+char *GetComma(unsigned long n);
 
 #endif /* UTILS_HPP */

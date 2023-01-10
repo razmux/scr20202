@@ -49,6 +49,7 @@
 #include "quest.hpp"
 #include "storage.hpp"
 #include "trade.hpp"
+#include "arthurdev.hpp"
 
 using namespace rathena;
 
@@ -124,7 +125,7 @@ static struct block_list *bl_list[BL_LIST_MAX];
 static int bl_list_count = 0;
 
 #ifndef MAP_MAX_MSG
-	#define MAP_MAX_MSG 1550
+	#define MAP_MAX_MSG 3000
 #endif
 
 struct map_data map[MAX_MAP_PER_SERVER];
@@ -560,11 +561,6 @@ int map_count_oncell(int16 m, int16 x, int16 y, int type, int flag)
 	if (type&~BL_MOB)
 		for( bl = mapdata->block[bx+by*mapdata->bxs] ; bl != NULL ; bl = bl->next )
 			if(bl->x == x && bl->y == y && bl->type&type) {
-				if (bl->type == BL_NPC) {	// Don't count hidden or invisible npc. Cloaked npc are counted
-					npc_data *nd = BL_CAST(BL_NPC, bl);
-					if (nd && (nd->bl.m < 0 || nd->sc.option && nd->sc.option&(OPTION_HIDE|OPTION_INVISIBLE)))
-						continue;
-				}
 				if(flag&1) {
 					struct unit_data *ud = unit_bl2ud(bl);
 					if(!ud || ud->walktimer == INVALID_TIMER)
@@ -1897,6 +1893,36 @@ int map_addflooritem(struct item *item, int amount, int16 m, int16 x, int16 y, i
 	return fitem->bl.id;
 }
 
+int map_addflooritem_area(struct block_list* bl, int16 m, int16 x, int16 y, int nameid, int amount)
+{
+	struct item item_tmp;
+	int count, range, i;
+	short mx, my;
+
+	memset(&item_tmp, 0, sizeof(item_tmp));
+	item_tmp.nameid = nameid;
+	item_tmp.identify = 1;
+
+	if (bl != NULL) m = bl->m;
+
+	count = 0;
+	range = (int)sqrt(amount) + 2;
+	for (i = 0; i < amount; i++)
+	{
+		if (bl != NULL)
+			map_search_freecell(bl, 0, &mx, &my, range, range, 0);
+		else
+		{
+			mx = x; my = y;
+			map_search_freecell(NULL, m, &mx, &my, range, range, 1);
+		}
+
+		count += (map_addflooritem(&item_tmp, 1, m, mx, my, 0, 0, 0, 4, 0, 0) != 0) ? 1 : 0;
+	}
+
+	return count;
+}
+
 /**
  * @see DBCreateData
  */
@@ -1965,6 +1991,30 @@ void map_reqnickdb(struct map_session_data * sd, int charid)
 
 	nullpo_retv(sd);
 
+	if (battle_config.costume_reserved_char_id && battle_config.costume_reserved_char_id == charid)
+	{
+		clif_solved_charname(sd->fd, charid, "Costume");
+		return;
+	}
+
+	if (battle_config.universal_reserved_char_id && battle_config.universal_reserved_char_id == charid)
+	{
+		clif_solved_charname(sd->fd, charid, "Universal");
+		return;
+	}
+
+	
+	if (battle_config.bg_reserved_char_id && battle_config.bg_reserved_char_id == charid)
+	{
+		clif_solved_charname(sd->fd, charid, "Battleground");
+		return;
+	}
+ 
+	if (battle_config.woe_reserved_char_id && battle_config.woe_reserved_char_id == charid)
+	{
+		clif_solved_charname(sd->fd, charid, "WoE");
+		return;
+	}
 	tsd = map_charid2sd(charid);
 	if( tsd )
 	{
@@ -2073,11 +2123,15 @@ int map_quit(struct map_session_data *sd) {
 	if (sd->npc_id)
 		npc_event_dequeue(sd);
 
-	if (sd->bg_id)
-		bg_team_leave(sd, true, true);
+	if( sd->bg_id )
+	{
+		bg_team_leave(sd, true);
+		sd->status.bgstats.deserter++;
+	}
 
-	if (sd->bg_queue_id > 0)
-		bg_queue_leave(sd, false);
+	// Oboro queue
+	if (sd->qd != nullptr && sd->qd->q_id > 0)
+		bg_queue_leave(sd, sd->qd->q_id);
 
 	if( sd->status.clan_id )
 		clan_member_left(sd);
@@ -3203,6 +3257,8 @@ int map_getcellp(struct map_data* m,int16 x,int16 y,cell_chk cellchk)
 			return (cell.maelstrom);
 		case CELL_CHKICEWALL:
 			return (cell.icewall);
+		case CELL_CHKNODAMAGE: // Oboro - BG
+			return (cell.nodamage);
 
 		// special checks
 		case CELL_CHKPASS:
@@ -3259,6 +3315,7 @@ void map_setcell(int16 m, int16 x, int16 y, cell_t cell, bool flag)
 		case CELL_MAELSTROM:	 mapdata->cell[j].maelstrom = flag;	  break;
 		case CELL_ICEWALL:		 mapdata->cell[j].icewall = flag;		  break;
 		case CELL_NOBUYINGSTORE: mapdata->cell[j].nobuyingstore = flag; break;
+		case CELL_NODAMAGE:		 mapdata->cell[j].nodamage = flag;		break;
 		default:
 			ShowWarning("map_setcell: invalid cell type '%d'\n", (int)cell);
 			break;
@@ -3608,6 +3665,9 @@ void map_flags_init(void){
 		mapdata->flag.clear();
 		mapdata->flag.resize(MF_MAX, 0); // Resize and define default values
 		mapdata->drop_list.clear();
+		for(auto it = std::begin(mapdata->mobitemdrop_list); it != std::end(mapdata->mobitemdrop_list); ++it)
+			it->mobitemdrop_sub_list.clear();
+		mapdata->mobitemdrop_list.clear();
 		args.flag_val = 100;
 
 		// additional mapflag data
@@ -4753,8 +4813,7 @@ bool map_setmapflag_sub(int16 m, enum e_mapflag mapflag, bool status, union u_ma
 
 				if (mapdata->flag[MF_PVP]) {
 					mapdata->flag[MF_PVP] = false;
-					if (!battle_config.pk_mode)
-						ShowWarning("map_setmapflag: Unable to set PvP and Battleground flags for the same map! Removing PvP flag from %s.\n", mapdata->name);
+					ShowWarning("map_setmapflag: Unable to set PvP and Battleground flags for the same map! Removing PvP flag from %s.\n", mapdata->name);
 				}
 				if (mapdata->flag[MF_GVG]) {
 					mapdata->flag[MF_GVG] = false;
@@ -5200,11 +5259,11 @@ int do_init(int argc, char *argv[])
 	do_init_path();
 	do_init_atcommand();
 	do_init_battle();
-	do_init_instance();
 	do_init_chrif();
 	do_init_clan();
 	do_init_clif();
 	do_init_script();
+	do_init_instance();
 	do_init_itemdb();
 	do_init_channel();
 	do_init_cashshop();
@@ -5221,12 +5280,14 @@ int do_init(int argc, char *argv[])
 	do_init_elemental();
 	do_init_quest();
 	do_init_achievement();
-	do_init_battleground();
 	do_init_npc();
 	do_init_unit();
+	do_init_battleground();
 	do_init_duel();
 	do_init_vending();
 	do_init_buyingstore();
+
+	do_init_oboro(); //[Isaac] Oboro Emulator
 
 	npc_event_do_oninit();	// Init npcs (OnInit)
 

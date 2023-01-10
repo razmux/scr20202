@@ -210,6 +210,7 @@
     <ClInclude Include="mercenary.hpp" />
     <ClInclude Include="mob.hpp" />
     <ClInclude Include="npc.hpp" />
+	<ClInclude Include="arthurdev.hpp" />
     <ClInclude Include="packets.hpp" />
     <ClInclude Include="packets_struct.hpp" />
     <ClInclude Include="party.hpp" />
@@ -258,6 +259,7 @@
     </ClCompile>
     <ClCompile Include="npc.cpp" />
     <ClCompile Include="npc_chat.cpp" />
+	<ClCompile Include="arthurdev.cpp" />
     <ClCompile Include="party.cpp" />
     <ClCompile Include="path.cpp" />
     <ClCompile Include="pc.cpp" />
@@ -317,7 +319,6 @@
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\achievement_level_db.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\achievement_level_db.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\attendance.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\attendance.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\attr_fix.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\attr_fix.yml')" />
-    <Copy SourceFiles="$(SolutionDir)db\import-tmpl\battleground_db.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\battleground_db.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\castle_db.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\castle_db.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\const.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\const.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\create_arrow_db.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\create_arrow_db.yml')" />
@@ -343,7 +344,6 @@
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\level_penalty.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\level_penalty.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\magicmushroom_db.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\magicmushroom_db.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\map_cache.dat" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\map_cache.dat')" />
-    <Copy SourceFiles="$(SolutionDir)db\import-tmpl\map_drops.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\map_drops.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\map_index.txt" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\map_index.txt')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\mercenary_db.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\mercenary_db.yml')" />
     <Copy SourceFiles="$(SolutionDir)db\import-tmpl\mob_avail.yml" DestinationFolder="$(SolutionDir)db\import\" ContinueOnError="true" Condition="!Exists('$(SolutionDir)db\import\mob_avail.yml')" />
